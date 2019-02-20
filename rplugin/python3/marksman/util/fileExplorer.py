@@ -13,14 +13,6 @@ def escQuote(str):
     return "" if str is None else str.replace("'", "''")
 
 
-def mmEncode(str):
-    return str
-
-
-def lfDecode(str):
-    return str
-
-
 def mmOpen(file, mode='r', buffering=-1, encoding=None, errors=None,
            newline=None, closefd=True):
     return open(file, mode, buffering, encoding, errors, newline, closefd)
@@ -49,14 +41,15 @@ class FileExplorer:
         start_time = time.time()
         wildignore = self._nvim.eval("g:Mm_WildIgnore")
         file_list = []
-        for dir_path, dirs, files in os.walk(dir, followlinks = False
+        for dir_path, dirs, files in os.walk(
+                dir, followlinks=False
                 if self._nvim.eval("g:Mm_FollowLinks") == '0' else True):
-            dirs[:] = [i for i in dirs if True not in (fnmatch.fnmatch(i,j)
+            dirs[:] = [i for i in dirs if True not in (fnmatch.fnmatch(i, j)
                        for j in wildignore['dir'])]
             for name in files:
                 if True not in (fnmatch.fnmatch(name, j)
                                 for j in wildignore['file']):
-                    file_list.append(mmEncode(os.path.join(dir_path,name)))
+                    file_list.append(os.path.join(dir_path, name))
                 if time.time() - start_time > float(
                         self._nvim.eval("g:Mm_IndexTimeLimit")):
                     return file_list
@@ -109,8 +102,8 @@ class FileExplorer:
                             path = line.split(None, 2)[2].strip()
                             if path.startswith(dir):
                                 cache_file_name = line.split(None, 2)[1].strip()
-                                line = '%.3f %s %s\n' % (time.time(),
-                                        cache_file_name, dir)
+                                line = '%.3f %s %s\n' % (
+                                    time.time(), cache_file_name, dir)
                                 break
                         if cache_file_name == '':
                             timestamp = lines[0].split(None, 2)[0]
@@ -120,8 +113,8 @@ class FileExplorer:
                                     timestamp = line.split(None, 2)[0]
                                     oldest = i
                             cache_file_name = lines[oldest].split(None, 2)[1].strip()
-                            lines[oldest] = '%.3f %s %s\n' % (time.time(),
-                                            cache_file_name, dir)
+                            lines[oldest] = '%.3f %s %s\n' % (
+                                time.time(), cache_file_name, dir)
                         f.seek(0)
                         f.truncate(0)
                         f.writelines(lines)
@@ -255,11 +248,13 @@ class FileExplorer:
 
         if default_tool["rg"] and self._nvim.eval("executable('rg')") == '1':
             wildignore = self._nvim.eval("g:Mm_WildIgnore")
-            if os.name == 'nt': # https://github.com/BurntSushi/ripgrep/issues/500
+            # https://github.com/BurntSushi/ripgrep/issues/500
+            if os.name == 'nt':
                 color = ""
                 ignore = ""
                 for i in wildignore["dir"]:
-                    if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'): # rg does not show hidden files by default
+                    # rg does not show hidden files by default
+                    if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'):
                         ignore += ' -g "!%s"' % i
                 for i in wildignore["file"]:
                     if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'):
@@ -294,12 +289,15 @@ class FileExplorer:
             else:
                 cur_dir = '"%s"' % dir
 
-            cmd = 'rg --no-messages --files %s %s %s %s %s %s' % (color, ignore, followlinks, show_hidden, no_ignore, cur_dir)
-        elif default_tool["pt"] and self._nvim.eval("executable('pt')") == '1' and os.name != 'nt': # there is bug on Windows
+            cmd = 'rg --no-messages --files %s %s %s %s %s %s' % (
+                color, ignore, followlinks, show_hidden, no_ignore, cur_dir)
+        # there is bug on Windows
+        elif default_tool["pt"] and self._nvim.eval("executable('pt')") == '1' and os.name != 'nt':
             wildignore = self._nvim.eval("g:Mm_WildIgnore")
             ignore = ""
             for i in wildignore["dir"]:
-                if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'): # pt does not show hidden files by default
+                # pt does not show hidden files by default
+                if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'):
                     ignore += " --ignore=%s" % i
             for i in wildignore["file"]:
                 if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'):
@@ -321,11 +319,14 @@ class FileExplorer:
                 no_ignore = ""
 
             cmd = 'pt --nocolor %s %s %s %s -g="" "%s"' % (ignore, followlinks, show_hidden, no_ignore, dir)
-        elif default_tool["ag"] and self._nvim.eval("executable('ag')") == '1' and os.name != 'nt': # https://github.com/vim/vim/issues/3236
+
+        # https://github.com/vim/vim/issues/3236
+        elif default_tool["ag"] and self._nvim.eval("executable('ag')") == '1' and os.name != 'nt':
             wildignore = self._nvim.eval("g:Mm_WildIgnore")
             ignore = ""
             for i in wildignore["dir"]:
-                if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'): # ag does not show hidden files by default
+                # ag does not show hidden files by default
+                if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'):
                     ignore += ' --ignore "%s"' % i
             for i in wildignore["file"]:
                 if self._nvim.eval("g:Mm_ShowHidden") != '0' or not i.startswith('.'):
@@ -375,13 +376,8 @@ class FileExplorer:
             else:
                 show_hidden = ""
 
-            cmd = 'find %s "%s" -name "." -o %s %s %s -type f -print %s %s' % (followlinks,
-                                                                               dir,
-                                                                               ignore_dir,
-                                                                               ignore_file,
-                                                                               show_hidden,
-                                                                               redir_err,
-                                                                               strip)
+            cmd = 'find %s "%s" -name "." -o %s %s %s -type f -print %s %s' % (
+                followlinks, dir, ignore_dir, ignore_file, show_hidden, redir_err, strip)
         else:
             cmd = None
 
@@ -409,9 +405,8 @@ class FileExplorer:
                     return
 
                 # update the time
-                lines[target] = re.sub('^\S*',
-                                       '%.3f' % time.time(),
-                                       lines[target])
+                lines[target] = re.sub(
+                    '^\S*', '%.3f' % time.time(), lines[target])
                 f.seek(0)
                 f.truncate(0)
                 f.writelines(lines)
@@ -473,13 +468,13 @@ class FileExplorer:
                                          lines[target].split(None, 2)[1]),
                             'r', errors='ignore') as cache_file:
                     file_list = cache_file.readlines()
-                    if not file_list: # empty
+                    if not file_list:  # empty
                         return None
 
                     if os.path.isabs(file_list[0]):
                         return file_list
                     else:
-                        return [os.path.join(mmEncode(dir), file) for file in file_list]
+                        return [os.path.join(dir, file) for file in file_list]
             else:
                 return None
 
@@ -498,7 +493,7 @@ class FileExplorer:
 
         if kwargs.get("arguments", {}).get("directory"):
             dir = kwargs.get("arguments", {}).get("directory")[0]
-            if os.path.exists(os.path.expanduser(lfDecode(dir))):
+            if os.path.exists(os.path.expanduser(dir)):
                 self._nvim.command("silent cd %s" % dir)
             else:
                 self._nvim.command("echohl ErrorMsg | redraw | echon "
@@ -539,30 +534,3 @@ class FileExplorer:
                 self._content = self._getFileList(dir)
 
         return self._content
-
-    def getFreshContent(self, *args, **kwargs):
-        if self._external_cmd:
-            self._content = []
-            kwargs["refresh"] = True
-            return self.getContent(*args, **kwargs)
-
-        self._refresh()
-        self._content = self._getFileList(self._cur_dir)
-        return self._content
-
-    def getStlCategory(self):
-        return 'File'
-
-    def getStlCurDir(self):
-        return escQuote(mmEncode(os.path.abspath(self._cur_dir)))
-
-    def supportsMulti(self):
-        return True
-
-    def supportsNameOnly(self):
-        return True
-
-    def cleanup(self):
-        for exe in self._executor:
-            exe.killProcess()
-        self._executor = []

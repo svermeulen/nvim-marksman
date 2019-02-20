@@ -64,7 +64,7 @@ function! s:canonizePath(path)
     return substitute(path, '\v^([A-Za-z]):', '\U\1:', '')
 endfunction
 
-function! g:MarksmanAddMarks(projectRootPath, id, candidate)
+function! g:MarksmanAddFileMark(projectRootPath, id, candidate)
     let idMap = g:marksmanCandidates[a:projectRootPath]
 
     if !has_key(idMap, a:id)
