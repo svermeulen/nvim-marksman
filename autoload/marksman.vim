@@ -2,6 +2,7 @@ scriptencoding utf-8
 
 let g:marksmanCandidates = {}
 let g:marksmanIsUpdating = {}
+let g:marksmanTotalProjectCount = {}
 
 let g:marksmanProgressUpdateInterval = 0.3
 
@@ -60,7 +61,7 @@ function! s:getNextMatchesStr(candidates, chosenIndex)
 endfunction
 
 function! s:goToMark(mark)
-    echom 'Chose ' . a:mark.name
+    exec 'e ' . a:mark.path
 endfunction
 
 function! s:canonizePath(path)
@@ -79,11 +80,14 @@ function! g:MarksmanAddMarks(projectRootPath, id, candidate)
     endif
 
     call add(idMap[a:id], a:candidate)
+
+    let g:marksmanTotalProjectCount[a:projectRootPath] += 1
 endfunction
 
 function! s:getAllMatches(projectRootPath, requestId)
     if !has_key(g:marksmanCandidates, a:projectRootPath)
         let g:marksmanCandidates[a:projectRootPath] = {}
+        let g:marksmanTotalProjectCount[a:projectRootPath] = 0
         call MarksmanUpdateCache(a:projectRootPath)
     endif
 
@@ -124,7 +128,7 @@ function! marksman#run(projectRootPath)
                 let s:lastProgressTime = reltime()
             endif
 
-            echon ' Searching'
+            echon ' Searching (' . g:marksmanTotalProjectCount[projectRootPath] . ')'
 
             for i in range(0, s:progressIndex)
                 echon '.'

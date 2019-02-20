@@ -3,6 +3,7 @@ import pynvim
 import os
 from marksman.util.fileExplorer import FileExplorer
 import os.path
+import time
 
 
 @pynvim.plugin
@@ -13,8 +14,8 @@ class Marksman(object):
         self._explorer = None
 
     def _getId(self, word):
-        result = ''
-        for c in word:
+        result = word[0].lower()
+        for c in word[1:]:
             if c.isupper():
                 result += c.lower()
         return result
@@ -24,11 +25,17 @@ class Marksman(object):
             # Do this lazily
             self._explorer = FileExplorer(self._nvim)
 
+        count = 0
         for path in self._explorer.lookupFiles(projectRootPath):
+            path = os.path.abspath(path.strip()).replace('\\', '/')
             name = os.path.basename(path)
             self._nvim.command(
                 f'call g:MarksmanAddMarks("{projectRootPath}",'
                 + f'"{self._getId(name)}", {{ "name": "{name}", "path": "{path}" }})')
+            count += 1
+
+            if count % 100 == 0:
+                time.sleep(0.001)
 
     @pynvim.function('MarksmanUpdateCache')
     def run(self, args):
