@@ -20,13 +20,13 @@ class Marksman(object):
                 result += c.lower()
         return result
 
-    def _updateCache(self, projectRootPath):
+    def _updateCache(self, projectRootPath, useCache):
         if not self._explorer:
             # Do this lazily
             self._explorer = FileExplorer(self._nvim)
 
         count = 0
-        for path in self._explorer.lookupFiles(projectRootPath):
+        for path in self._explorer.lookupFiles(projectRootPath, useCache):
             path = os.path.abspath(path.strip()).replace('\\', '/')
             name = os.path.basename(path)
             self._nvim.command(
@@ -39,9 +39,10 @@ class Marksman(object):
 
     @pynvim.function('MarksmanUpdateCache')
     def run(self, args):
-        assert len(args) == 1, 'Expected one argument to MarksmanUpdateCache'
+        assert len(args) == 2, 'Expected one argument to MarksmanUpdateCache'
 
         projectRootPath = args[0]
+        useCache = args[1]
 
         if self._isRunning:
             return
@@ -51,7 +52,7 @@ class Marksman(object):
             f'let g:marksmanIsUpdating["{projectRootPath}"] = 1')
 
         try:
-            self._updateCache(projectRootPath)
+            self._updateCache(projectRootPath, useCache)
         finally:
             self._isRunning = False
             self._nvim.command(

@@ -9,43 +9,29 @@ let g:marksmanProgressUpdateInterval = 0.3
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
 
-function! s:InitVar(var, value)
-    if !exists(a:var)
-        exec 'let '.a:var.'='.string(a:value)
-    endif
-endfunction
-
-call s:InitVar('g:Mm_CacheDirectory', $HOME)
-call s:InitVar('g:Mm_NeedCacheTime', '1.5')
-call s:InitVar('g:Mm_NumberOfCache', 5)
-call s:InitVar('g:Mm_UseMemoryCache', 1)
-call s:InitVar('g:Mm_IndexTimeLimit', 120)
-call s:InitVar('g:Mm_FollowLinks', 0)
-call s:InitVar('g:Mm_WildIgnore', {
-            \ 'dir': [],
-            \ 'file': []
-            \})
-call s:InitVar('g:Mm_UseVersionControlTool', 1)
-call s:InitVar('g:Mm_UseCache', 1)
-call s:InitVar('g:Mm_WorkingDirectory', '')
-call s:InitVar('g:Mm_ShowHidden', 0)
-
-function! s:getNextMatchesStr(candidates, chosenIndex)
-    let maxChars = 150
+function! s:getNextMatchesStr(candidates, chosenIndex, totalCharCount)
+    let maxChars = &columns - a:totalCharCount - 15
     let charCount = 0
     let fullMsg = ''
     let charIndex = -1
 
     if a:chosenIndex > 0
-        let fullMsg .= '... >'
+        let fullMsg .= ' ... '
     else
-        let fullMsg .= '    >'
+        let fullMsg .= '     '
     endif
 
+    let firstEntry = 1
     for i in range(a:chosenIndex, len(a:candidates) - 1)
         let candidate = a:candidates[i].name
 
-        let entry = candidate . ' | '
+        let entry = ''
+        if !firstEntry
+            let entry .= ', '
+        endif
+        let firstEntry = 0
+
+        let entry .= candidate
         let entryLength = strlen(entry)
 
         if charCount + entryLength > maxChars
@@ -58,6 +44,12 @@ function! s:getNextMatchesStr(candidates, chosenIndex)
     endfor
 
     return fullMsg
+endfunction
+
+function! s:InitVar(var, value)
+    if !exists(a:var)
+        exec 'let '.a:var.'='.string(a:value)
+    endif
 endfunction
 
 function! s:goToMark(mark)
@@ -86,14 +78,18 @@ endfunction
 
 function! s:getAllMatches(projectRootPath, requestId)
     if !has_key(g:marksmanCandidates, a:projectRootPath)
-        let g:marksmanCandidates[a:projectRootPath] = {}
-        let g:marksmanTotalProjectCount[a:projectRootPath] = 0
-        call MarksmanUpdateCache(a:projectRootPath)
+        call s:forceRefresh(a:projectRootPath, 1)
     endif
 
     let idMap = g:marksmanCandidates[a:projectRootPath]
 
     return get(idMap, a:requestId, [])
+endfunction
+
+function! s:forceRefresh(projectRootPath, useCache)
+    let g:marksmanCandidates[a:projectRootPath] = {}
+    let g:marksmanTotalProjectCount[a:projectRootPath] = 0
+    call MarksmanUpdateCache(a:projectRootPath, a:useCache)
 endfunction
 
 function! marksman#run(projectRootPath)
@@ -102,23 +98,35 @@ function! marksman#run(projectRootPath)
     let requestId = ''
     let candidates = []
 
-    let indent = 8
+    let indent1 = 8
+    let indent2 = 20
     let chosenIndex = 0
 
     while 1
         " Necessary to avoid putting CPU at 100%
         sleep 10m
 
+        let charCount = 0
         let candidates = s:getAllMatches(projectRootPath, requestId)
         redraw
         echon requestId
         echohl Cursor
         echon ' '
         echohl NONE
-        for i in range(0, max([0, indent - len(requestId)]))
-            echon ' '
-        endfor
-        echon s:getNextMatchesStr(candidates, chosenIndex)
+
+        let charCount += len(requestId) + 1
+
+        if charCount < indent1
+            for i in range(1, indent1 - charCount)
+                echon ' '
+            endfor
+            let charCount = indent1
+        endif
+
+        let totalCount = string(g:marksmanTotalProjectCount[projectRootPath])
+        echon '(' . totalCount
+
+        let charCount += 1 + len(totalCount)
 
         if get(g:marksmanIsUpdating, projectRootPath, 0)
             let elapsed = reltimefloat(reltime(s:lastProgressTime))
@@ -128,12 +136,23 @@ function! marksman#run(projectRootPath)
                 let s:lastProgressTime = reltime()
             endif
 
-            echon ' Searching (' . g:marksmanTotalProjectCount[projectRootPath] . ')'
-
             for i in range(0, s:progressIndex)
                 echon '.'
+                let charCount += 1
             endfor
         endif
+
+        echon ')'
+        let charCount += 1
+
+        if charCount < indent2
+            for i in range(1, indent2 - charCount)
+                echon ' '
+            endfor
+            let charCount = indent2
+        endif
+
+        echon s:getNextMatchesStr(candidates, chosenIndex, charCount)
 
         let charNo = getchar(1)
 
@@ -141,7 +160,8 @@ function! marksman#run(projectRootPath)
             continue
         endif
 
-        let char = nr2char(getchar())
+        let charNo = getchar()
+        let char = nr2char(charNo)
 
         if char ==# ''
             redraw
@@ -153,6 +173,11 @@ function! marksman#run(projectRootPath)
             if chosenIndex < len(candidates) - 1
                 let chosenIndex += 1
             endif
+            continue
+        endif
+
+        if charNo ==# "\<f5>"
+            call s:forceRefresh(projectRootPath, 0)
             continue
         endif
 
@@ -187,3 +212,18 @@ function! marksman#run(projectRootPath)
         let requestId = requestId . char
     endwhile
 endfunction
+
+call s:InitVar('g:Mm_CacheDirectory', $HOME)
+call s:InitVar('g:Mm_NeedCacheTime', '1.5')
+call s:InitVar('g:Mm_NumberOfCache', 5)
+call s:InitVar('g:Mm_UseMemoryCache', 1)
+call s:InitVar('g:Mm_IndexTimeLimit', 120)
+call s:InitVar('g:Mm_FollowLinks', 0)
+call s:InitVar('g:Mm_WildIgnore', {
+            \ 'dir': [],
+            \ 'file': []
+            \})
+call s:InitVar('g:Mm_UseVersionControlTool', 1)
+call s:InitVar('g:Mm_UseCache', 1)
+call s:InitVar('g:Mm_WorkingDirectory', '')
+call s:InitVar('g:Mm_ShowHidden', 0)

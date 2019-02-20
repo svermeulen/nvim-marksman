@@ -483,9 +483,9 @@ class FileExplorer:
             else:
                 return None
 
-    def lookupFiles(self, rootPath):
+    def lookupFiles(self, rootPath, useCache):
         os.chdir(rootPath)
-        return self.getContent()
+        return self.getContent(refresh=not useCache)
 
     def getContent(self, *args, **kwargs):
         files = kwargs.get("arguments", {}).get("--file", [])
@@ -502,7 +502,7 @@ class FileExplorer:
                 self._nvim.command("silent cd %s" % dir)
             else:
                 self._nvim.command("echohl ErrorMsg | redraw | echon "
-                            "'Unknown directory `%s`' | echohl NONE" % dir)
+                                   "'Unknown directory `%s`' | echohl NONE" % dir)
                 return None
 
         dir = os.getcwd()
