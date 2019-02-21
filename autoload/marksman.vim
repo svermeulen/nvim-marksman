@@ -1,11 +1,8 @@
 scriptencoding utf-8
 
-let g:marksmanCandidates = {}
-let g:marksmanIsUpdating = {}
-let g:marksmanTotalProjectCount = {}
-
-let g:marksmanProgressUpdateInterval = 0.3
-
+let s:candidates = {}
+let s:isUpdating = {}
+let s:totalProjectCount = {}
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
 
@@ -16,9 +13,8 @@ function! s:getNextMatchesStr(candidates, chosenIndex, totalCharCount)
     let charIndex = -1
 
     if a:chosenIndex > 0
-        let fullMsg .= ' ... '
-    else
-        let fullMsg .= '     '
+        let fullMsg .= '... '
+        let charCount += 4
     endif
 
     let firstEntry = 1
@@ -64,8 +60,16 @@ function! s:canonizePath(path)
     return substitute(path, '\v^([A-Za-z]):', '\U\1:', '')
 endfunction
 
-function! g:MarksmanAddFileMark(projectRootPath, id, candidate)
-    let idMap = g:marksmanCandidates[a:projectRootPath]
+function! marksman#markProjectInProgress(projectRootPath, inProgress)
+    let s:isUpdating[a:projectRootPath] = a:inProgress
+endfunction
+
+function! marksman#addFileMark(projectRootPath, id, candidate)
+    if !has_key(s:candidates, a:projectRootPath)
+        let s:candidates[a:projectRootPath] = {}
+    endif
+
+    let idMap = s:candidates[a:projectRootPath]
 
     if !has_key(idMap, a:id)
         let idMap[a:id] = []
@@ -73,23 +77,27 @@ function! g:MarksmanAddFileMark(projectRootPath, id, candidate)
 
     call add(idMap[a:id], a:candidate)
 
-    let g:marksmanTotalProjectCount[a:projectRootPath] += 1
+    if !has_key(s:totalProjectCount, a:projectRootPath)
+        let s:totalProjectCount[a:projectRootPath] = 0
+    endif
+
+    let s:totalProjectCount[a:projectRootPath] += 1
 endfunction
 
 function! s:getAllMatches(projectRootPath, requestId)
-    if !has_key(g:marksmanCandidates, a:projectRootPath)
-        call s:forceRefresh(a:projectRootPath, 1)
+    if !has_key(s:candidates, a:projectRootPath)
+        call s:forceRefresh(a:projectRootPath, 0)
     endif
 
-    let idMap = g:marksmanCandidates[a:projectRootPath]
+    let idMap = s:candidates[a:projectRootPath]
 
     return get(idMap, a:requestId, [])
 endfunction
 
-function! s:forceRefresh(projectRootPath, useCache)
-    let g:marksmanCandidates[a:projectRootPath] = {}
-    let g:marksmanTotalProjectCount[a:projectRootPath] = 0
-    call MarksmanUpdateCache(a:projectRootPath, a:useCache)
+function! s:forceRefresh(projectRootPath, updateCache)
+    let s:candidates[a:projectRootPath] = {}
+    let s:totalProjectCount[a:projectRootPath] = 0
+    call MarksmanUpdateCache(a:projectRootPath, a:updateCache)
 endfunction
 
 function! marksman#run(projectRootPath)
@@ -123,15 +131,15 @@ function! marksman#run(projectRootPath)
             let charCount = indent1
         endif
 
-        let totalCount = string(g:marksmanTotalProjectCount[projectRootPath])
+        let totalCount = string(s:totalProjectCount[projectRootPath])
         echon '(' . totalCount
 
         let charCount += 1 + len(totalCount)
 
-        if get(g:marksmanIsUpdating, projectRootPath, 0)
+        if get(s:isUpdating, projectRootPath, 0)
             let elapsed = reltimefloat(reltime(s:lastProgressTime))
 
-            if elapsed > g:marksmanProgressUpdateInterval
+            if elapsed > g:Mm_ProgressUpdateInterval
                 let s:progressIndex = float2nr(fmod(s:progressIndex + 1, 3))
                 let s:lastProgressTime = reltime()
             endif
@@ -177,7 +185,7 @@ function! marksman#run(projectRootPath)
         endif
 
         if charNo ==# "\<f5>"
-            call s:forceRefresh(projectRootPath, 0)
+            call s:forceRefresh(projectRootPath, 1)
             continue
         endif
 
@@ -213,6 +221,9 @@ function! marksman#run(projectRootPath)
     endwhile
 endfunction
 
+function! marksman#init()
+endfunction
+
 call s:InitVar('g:Mm_CacheDirectory', $HOME)
 call s:InitVar('g:Mm_NeedCacheTime', '1.5')
 call s:InitVar('g:Mm_NumberOfCache', 5)
@@ -227,3 +238,5 @@ call s:InitVar('g:Mm_UseVersionControlTool', 1)
 call s:InitVar('g:Mm_UseCache', 1)
 call s:InitVar('g:Mm_WorkingDirectory', '')
 call s:InitVar('g:Mm_ShowHidden', 0)
+call s:InitVar('g:Mm_ProgressUpdateInterval', 0.1)
+
