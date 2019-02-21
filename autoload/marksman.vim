@@ -125,6 +125,13 @@ function! s:getAllMatches(projectRootPath, requestId)
     return sort(get(idMap, a:requestId, []), 's:CompareCandidates')
 endfunction
 
+function! s:clearEcho()
+    redraw
+    for i in range(1, &cmdheight)
+        echo
+    endfor
+endfunction
+
 function! s:forceRefresh(projectRootPath, updateCache)
     let s:candidates[a:projectRootPath] = {}
     let s:totalProjectCount[a:projectRootPath] = 0
@@ -203,8 +210,7 @@ function! marksman#run(projectRootPath)
         let char = nr2char(charNo)
 
         if char ==# ''
-            redraw
-            echo
+            call s:clearEcho()
             break
         endif
 
@@ -239,8 +245,8 @@ function! marksman#run(projectRootPath)
         endif
 
         if char ==# ''
-            redraw
-            echo
+            call s:clearEcho()
+
             if !empty(candidates)
                 call s:goToMark(candidates[chosenIndex])
             endif

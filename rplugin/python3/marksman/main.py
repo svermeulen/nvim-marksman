@@ -5,7 +5,7 @@ from marksman.util.fileExplorer import FileExplorer
 import os.path
 import time
 import hashlib
-from datetime import datetime
+# from datetime import datetime
 
 
 @pynvim.plugin
@@ -32,8 +32,8 @@ class Marksman(object):
         hash = int(hashlib.sha256(rootPath.encode('utf-8')).hexdigest(), 16) % 10**8
         return os.path.join(cacheDir, f'{hash}.txt')
 
-    def _debugPrint(self, str):
-        self._nvim.command(f'echom "{str}"')
+    # def _debugPrint(self, str):
+    #     self._nvim.command(f'echom "{str}"')
 
     def _addToMemoryCache(self, rootPath, path):
         name = os.path.basename(path)
@@ -49,7 +49,7 @@ class Marksman(object):
         if not os.path.exists(cacheFilePath):
             return False
 
-        startTime = datetime.now()
+        # startTime = datetime.now()
         with open(cacheFilePath, 'r', errors='ignore') as cacheFile:
             count = 0
             for line in cacheFile.readlines():
@@ -60,7 +60,7 @@ class Marksman(object):
                     # Sleep so that the count display updates
                     time.sleep(0.001)
 
-        self._debugPrint("Took %s seconds for cache update" % (datetime.now() - startTime).total_seconds())
+        # self._debugPrint("Took %s seconds for cache update" % (datetime.now() - startTime).total_seconds())
         return True
 
     def _runForDirectory(self, rootPath, forceUpdateCache):
@@ -77,7 +77,7 @@ class Marksman(object):
             cacheFile = open(
                 self._getCacheFilePath(rootPath), 'w', errors='ignore')
 
-        startTime = datetime.now()
+        # startTime = datetime.now()
         try:
             noIgnore = False  # Do we care about this?
             count = 0
@@ -95,7 +95,7 @@ class Marksman(object):
             if cacheFile:
                 cacheFile.close()
 
-        self._debugPrint("Took %s seconds for full update" % (datetime.now() - startTime).total_seconds())
+        # self._debugPrint("Took %s seconds for full update" % (datetime.now() - startTime).total_seconds())
 
     def _markInProgress(self, rootPath, inProgress):
         self._nvim.call('marksman#markProjectInProgress', rootPath, inProgress)
