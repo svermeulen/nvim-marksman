@@ -74,7 +74,6 @@ function! marksman#onBufEntered()
 
     let path = marksman#getCanonicalPath(path)
     let s:lastOpenTime[path] = localtime()
-    echom 'Added last open time for "' . path . '"'
 endfunction
 
 function! marksman#addFileMark(projectRootPath, id, candidate)
