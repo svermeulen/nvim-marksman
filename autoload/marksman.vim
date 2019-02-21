@@ -5,6 +5,7 @@ let s:isUpdating = {}
 let s:totalProjectCount = {}
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
+let s:lastOpenTime = {}
 
 function! s:getNextMatchesStr(candidates, chosenIndex, totalCharCount)
     let maxChars = &columns - a:totalCharCount - 15
@@ -52,7 +53,7 @@ function! s:goToMark(mark)
     exec 'e ' . a:mark.path
 endfunction
 
-function! s:canonizePath(path)
+function! marksman#getCanonicalPath(path)
     " Use forward slashes, simplify use of ellipses etc., and then lower case everything
     let path = tolower(simplify(substitute(a:path, '\\', '/', 'g')))
 
@@ -62,6 +63,18 @@ endfunction
 
 function! marksman#markProjectInProgress(projectRootPath, inProgress)
     let s:isUpdating[a:projectRootPath] = a:inProgress
+endfunction
+
+function! marksman#onBufEntered()
+    let path = expand('%:p')
+
+    if len(path) == 0
+        return
+    endif
+
+    let path = marksman#getCanonicalPath(path)
+    let s:lastOpenTime[path] = localtime()
+    echom 'Added last open time for "' . path . '"'
 endfunction
 
 function! marksman#addFileMark(projectRootPath, id, candidate)
@@ -84,6 +97,25 @@ function! marksman#addFileMark(projectRootPath, id, candidate)
     let s:totalProjectCount[a:projectRootPath] += 1
 endfunction
 
+function! s:tryGetLastOpenTime(path)
+    return get(s:lastOpenTime, a:path, 0)
+endfunction
+
+function! s:CompareCandidates(entry1, entry2)
+    let time1 = get(s:lastOpenTime, a:entry1.path, -1)
+    let time2 = get(s:lastOpenTime, a:entry2.path, -1)
+
+    if time1 == time2
+        return 0
+    endif
+
+    if time1 < time2
+        return 1
+    endif
+
+    return -1
+endfunction
+
 function! s:getAllMatches(projectRootPath, requestId)
     if !has_key(s:candidates, a:projectRootPath)
         call s:forceRefresh(a:projectRootPath, 0)
@@ -91,7 +123,7 @@ function! s:getAllMatches(projectRootPath, requestId)
 
     let idMap = s:candidates[a:projectRootPath]
 
-    return get(idMap, a:requestId, [])
+    return sort(get(idMap, a:requestId, []), 's:CompareCandidates')
 endfunction
 
 function! s:forceRefresh(projectRootPath, updateCache)
@@ -101,7 +133,7 @@ function! s:forceRefresh(projectRootPath, updateCache)
 endfunction
 
 function! marksman#run(projectRootPath)
-    let projectRootPath = s:canonizePath(a:projectRootPath)
+    let projectRootPath = marksman#getCanonicalPath(a:projectRootPath)
 
     let requestId = ''
     let candidates = []

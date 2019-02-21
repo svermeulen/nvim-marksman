@@ -37,6 +37,7 @@ class Marksman(object):
 
     def _addToMemoryCache(self, rootPath, path):
         name = os.path.basename(path)
+        path = self._nvim.call("marksman#getCanonicalPath", path)
         id = self._getId(name)
         self._nvim.command(
             f'call marksman#addFileMark("{rootPath}",'
@@ -81,7 +82,7 @@ class Marksman(object):
             noIgnore = False  # Do we care about this?
             count = 0
             for path in self._explorer.getAllFilesUnderDirectory(rootPath, noIgnore):
-                path = os.path.abspath(path.strip()).replace('\\', '/')
+                path = os.path.abspath(path.strip())
                 self._addToMemoryCache(rootPath, path)
                 if cacheFile:
                     cacheFile.write(path + '\n')

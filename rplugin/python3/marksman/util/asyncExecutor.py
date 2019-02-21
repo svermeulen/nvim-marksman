@@ -11,8 +11,6 @@ if sys.version_info >= (3, 0):
 else:
     import Queue
 
-def lfEncode(str):
-    return str
 
 def lfBytes2Str(bytes, encoding=None):
     try:
@@ -27,6 +25,7 @@ def lfBytes2Str(bytes, encoding=None):
         return bytes.decode(errors="ignore")
     except UnicodeDecodeError:
         return bytes.decode(errors="ignore")
+
 
 class AsyncExecutor(object):
     """
@@ -119,7 +118,7 @@ class AsyncExecutor(object):
                         line = self._outQueue.get()
                         if line is None:
                             break
-                        yield lfEncode(lfBytes2Str(line.rstrip(b"\r\n")))
+                        yield lfBytes2Str(line.rstrip(b"\r\n"))
 
                 err = b"".join(iter(self._errQueue.get, None))
                 if err:
@@ -137,7 +136,7 @@ class AsyncExecutor(object):
 
 if __name__ == "__main__":
     executor = AsyncExecutor()
-    #out = executor.execute("D:/Utils/ctags58/ctags.exe -f- -R")
+    # out = executor.execute("D:/Utils/ctags58/ctags.exe -f- -R")
     os.chdir("D:/Projects/neovim")
     out = executor.execute("git ls-files && git ls-files --others")
     print("stdout begin: ============================================")
