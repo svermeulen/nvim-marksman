@@ -1,34 +1,28 @@
 scriptencoding utf-8
 
-let s:candidates = {}
-let s:isUpdating = {}
-let s:totalProjectCount = {}
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
-let s:lastOpenTime = {}
 
-function! s:getNextMatchesStr(candidates, chosenIndex, totalCharCount)
+function! s:printMatches(candidates, totalCharCount, hasMorePrevious)
     let maxChars = &columns - a:totalCharCount - 15
     let charCount = 0
     let fullMsg = ''
     let charIndex = -1
 
-    if a:chosenIndex > 0
+    if a:hasMorePrevious
         let fullMsg .= '... '
         let charCount += 4
     endif
 
     let firstEntry = 1
-    for i in range(a:chosenIndex, len(a:candidates) - 1)
-        let candidate = a:candidates[i].name
-
+    for candidate in a:candidates
         let entry = ''
         if !firstEntry
             let entry .= ', '
         endif
         let firstEntry = 0
 
-        let entry .= candidate
+        let entry .= candidate.name
         let entryLength = strlen(entry)
 
         if charCount + entryLength > maxChars
@@ -40,89 +34,7 @@ function! s:getNextMatchesStr(candidates, chosenIndex, totalCharCount)
         let charCount += entryLength
     endfor
 
-    return fullMsg
-endfunction
-
-function! s:InitVar(var, value)
-    if !exists(a:var)
-        exec 'let '.a:var.'='.string(a:value)
-    endif
-endfunction
-
-function! s:goToMark(mark)
-    exec 'e ' . a:mark.path
-endfunction
-
-function! marksman#getCanonicalPath(path)
-    " Use forward slashes, simplify use of ellipses etc., and then lower case everything
-    let path = tolower(simplify(substitute(a:path, '\\', '/', 'g')))
-
-    " Capitalize the first letter if it's an absolute path
-    return substitute(path, '\v^([A-Za-z]):', '\U\1:', '')
-endfunction
-
-function! marksman#markProjectInProgress(projectRootPath, inProgress)
-    let s:isUpdating[a:projectRootPath] = a:inProgress
-endfunction
-
-function! marksman#onBufEntered()
-    let path = expand('%:p')
-
-    if len(path) == 0
-        return
-    endif
-
-    let path = marksman#getCanonicalPath(path)
-    let s:lastOpenTime[path] = localtime()
-endfunction
-
-function! marksman#addFileMark(projectRootPath, id, candidate)
-    if !has_key(s:candidates, a:projectRootPath)
-        let s:candidates[a:projectRootPath] = {}
-    endif
-
-    let idMap = s:candidates[a:projectRootPath]
-
-    if !has_key(idMap, a:id)
-        let idMap[a:id] = []
-    endif
-
-    call add(idMap[a:id], a:candidate)
-
-    if !has_key(s:totalProjectCount, a:projectRootPath)
-        let s:totalProjectCount[a:projectRootPath] = 0
-    endif
-
-    let s:totalProjectCount[a:projectRootPath] += 1
-endfunction
-
-function! s:tryGetLastOpenTime(path)
-    return get(s:lastOpenTime, a:path, 0)
-endfunction
-
-function! s:CompareCandidates(entry1, entry2)
-    let time1 = get(s:lastOpenTime, a:entry1.path, -1)
-    let time2 = get(s:lastOpenTime, a:entry2.path, -1)
-
-    if time1 == time2
-        return 0
-    endif
-
-    if time1 < time2
-        return 1
-    endif
-
-    return -1
-endfunction
-
-function! s:getAllMatches(projectRootPath, requestId)
-    if !has_key(s:candidates, a:projectRootPath)
-        call s:forceRefresh(a:projectRootPath, 0)
-    endif
-
-    let idMap = s:candidates[a:projectRootPath]
-
-    return sort(get(idMap, a:requestId, []), 's:CompareCandidates')
+    echon fullMsg
 endfunction
 
 function! s:clearEcho()
@@ -132,28 +44,41 @@ function! s:clearEcho()
     endfor
 endfunction
 
-function! s:forceRefresh(projectRootPath, updateCache)
-    let s:candidates[a:projectRootPath] = {}
-    let s:totalProjectCount[a:projectRootPath] = 0
-    call MarksmanUpdateCache(a:projectRootPath, a:updateCache)
+function! marksman#runTest()
+    let result = MarksmanUpdateSearch('', '', 3)
+    echom result.totalCount
+endfunction
+
+function! marksman#evalAll(variableNames, evalList)
+    let result = {}
+    for name in a:variableNames
+        if exists(name)
+            let result[name] = eval(name)
+        else
+            let result[name] = v:null
+        endif
+    endfor
+    for value in a:evalList
+        let result[value] = eval(value)
+    endfor
+    return result
 endfunction
 
 function! marksman#run(projectRootPath)
-    let projectRootPath = marksman#getCanonicalPath(a:projectRootPath)
-
     let requestId = ''
-    let candidates = []
 
     let indent1 = 8
     let indent2 = 20
-    let chosenIndex = 0
+    let offset = 0
+    let maxAmount = 10
 
     while 1
         " Necessary to avoid putting CPU at 100%
         sleep 10m
 
         let charCount = 0
-        let candidates = s:getAllMatches(projectRootPath, requestId)
+        let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, maxAmount)
+
         redraw
         echon requestId
         echohl Cursor
@@ -169,12 +94,11 @@ function! marksman#run(projectRootPath)
             let charCount = indent1
         endif
 
-        let totalCount = string(s:totalProjectCount[projectRootPath])
-        echon '(' . totalCount
+        echon '(' . result.totalCount
 
-        let charCount += 1 + len(totalCount)
+        let charCount += 1 + len(result.totalCount)
 
-        if get(s:isUpdating, projectRootPath, 0)
+        if result.isUpdating
             let elapsed = reltimefloat(reltime(s:lastProgressTime))
 
             if elapsed > g:Mm_ProgressUpdateInterval
@@ -198,7 +122,7 @@ function! marksman#run(projectRootPath)
             let charCount = indent2
         endif
 
-        echon s:getNextMatchesStr(candidates, chosenIndex, charCount)
+        call s:printMatches(result.matches, charCount, offset > 0)
 
         let charNo = getchar(1)
 
@@ -215,14 +139,14 @@ function! marksman#run(projectRootPath)
         endif
 
         if char ==# ''
-            if chosenIndex < len(candidates) - 1
-                let chosenIndex += 1
-            endif
+            " if offset < len(candidates) - 1
+            "     let chosenIndex += 1
+            " endif
             continue
         endif
 
         if charNo ==# "\<f5>"
-            call s:forceRefresh(projectRootPath, 1)
+            call MarksmanForceRefresh(a:projectRootPath)
             continue
         endif
 
@@ -237,9 +161,9 @@ function! marksman#run(projectRootPath)
         endif
 
         if char ==# ''
-            if chosenIndex > 0
-                let chosenIndex -= 1
-            endif
+            " if chosenIndex > 0
+            "     let chosenIndex -= 1
+            " endif
 
             continue
         endif
@@ -247,8 +171,8 @@ function! marksman#run(projectRootPath)
         if char ==# ''
             call s:clearEcho()
 
-            if !empty(candidates)
-                call s:goToMark(candidates[chosenIndex])
+            if !empty(result.matches)
+                exec 'e ' . result.matches[0].path
             endif
 
             break
@@ -259,6 +183,12 @@ function! marksman#run(projectRootPath)
 endfunction
 
 function! marksman#init()
+endfunction
+
+function! s:InitVar(var, value)
+    if !exists(a:var)
+        exec 'let '.a:var.'='.string(a:value)
+    endif
 endfunction
 
 call s:InitVar('g:Mm_CacheDirectory', $HOME)
@@ -275,5 +205,5 @@ call s:InitVar('g:Mm_UseVersionControlTool', 1)
 call s:InitVar('g:Mm_UseCache', 1)
 call s:InitVar('g:Mm_WorkingDirectory', '')
 call s:InitVar('g:Mm_ShowHidden', 0)
-call s:InitVar('g:Mm_ProgressUpdateInterval', 0.1)
+call s:InitVar('g:Mm_ProgressUpdateInterval', 0.25)
 

@@ -6,11 +6,7 @@ import os
 import os.path
 import fnmatch
 import time
-from .asyncExecutor import AsyncExecutor
-
-
-def escQuote(str):
-    return "" if str is None else str.replace("'", "''")
+from .AsyncExecutor import AsyncExecutor
 
 
 def mmOpen(file, mode='r', buffering=-1, encoding=None, errors=None,
@@ -19,17 +15,17 @@ def mmOpen(file, mode='r', buffering=-1, encoding=None, errors=None,
 
 
 class FileExplorer:
-    def __init__(self, nvim):
-        self._nvim = nvim
+    def __init__(self, settings):
+        self._settings = settings
 
     def _getFilesWithPythonDirectly(self, rootDir):
         startTime = time.time()
-        wildignore = self._nvim.eval("g:Mm_WildIgnore")
+        wildignore = self._settings["g:Mm_WildIgnore"]
         fileList = []
 
         for dirPath, dirs, files in os.walk(
                 rootDir, followlinks=False
-                if not self._nvim.eval("g:Mm_FollowLinks") else True):
+                if not self._settings["g:Mm_FollowLinks"] else True):
             dirs[:] = [i for i in dirs if True not in (fnmatch.fnmatch(i, j)
                        for j in wildignore['dir'])]
             for name in files:
@@ -37,7 +33,7 @@ class FileExplorer:
                                 for j in wildignore['file']):
                     fileList.append(os.path.join(dirPath, name))
                 if time.time() - startTime > float(
-                        self._nvim.eval("g:Mm_IndexTimeLimit")):
+                        self._settings["g:Mm_IndexTimeLimit"]):
                     return fileList
         return fileList
 
@@ -82,12 +78,12 @@ class FileExplorer:
                 return glob
 
     def _tryBuildCmd(self, dirPath, noIgnore):
-        if self._nvim.eval("exists('g:Mm_ExternalCommand')"):
-            return self._nvim.eval("g:Mm_ExternalCommand") % dirPath.join('""')
+        if self._settings["exists('g:Mm_ExternalCommand')"]:
+            return self._settings["g:Mm_ExternalCommand"] % dirPath.join('""')
 
-        if self._nvim.eval("g:Mm_UseVersionControlTool"):
+        if self._settings["g:Mm_UseVersionControlTool"]:
             if self._exists(dirPath, ".git"):
-                wildignore = self._nvim.eval("g:Mm_WildIgnore")
+                wildignore = self._settings["g:Mm_WildIgnore"]
                 if ".git" in wildignore["dir"]:
                     wildignore["dir"].remove(".git")
                 if ".git" in wildignore["file"]:
@@ -103,7 +99,7 @@ class FileExplorer:
                 else:
                     no_ignore = "--exclude-standard"
 
-                if self._nvim.eval("get(g:, 'Mm_RecurseSubmodules', 0)"):
+                if self._settings["get(g:, 'Mm_RecurseSubmodules', 0)"]:
                     recurse_submodules = "--recurse-submodules"
                 else:
                     recurse_submodules = ""
@@ -111,7 +107,7 @@ class FileExplorer:
                 return "git ls-files %s && git ls-files --others %s %s" % (recurse_submodules, no_ignore, ignore)
 
             if self._exists(dirPath, ".hg"):
-                wildignore = self._nvim.eval("g:Mm_WildIgnore")
+                wildignore = self._settings["g:Mm_WildIgnore"]
                 if ".hg" in wildignore["dir"]:
                     wildignore["dir"].remove(".hg")
                 if ".hg" in wildignore["file"]:
@@ -124,44 +120,44 @@ class FileExplorer:
 
                 return 'hg files %s "%s"' % (ignore, dirPath)
 
-        if self._nvim.eval("exists('g:Mm_DefaultExternalTool')"):
+        if self._settings["exists('g:Mm_DefaultExternalTool')"]:
             default_tool = {"rg": 0, "pt": 0, "ag": 0, "find": 0}
-            tool = self._nvim.eval("g:Mm_DefaultExternalTool")
-            if tool and not self._nvim.eval("executable('%s')" % tool):
+            tool = self._settings["g:Mm_DefaultExternalTool"]
+            if tool and not self._settings["executable('%s')" % tool]:
                 raise Exception("executable '%s' can not be found!" % tool)
             default_tool[tool] = 1
         else:
             default_tool = {"rg": 1, "pt": 1, "ag": 1, "find": 1}
 
-        if default_tool["rg"] and self._nvim.eval("executable('rg')"):
-            wildignore = self._nvim.eval("g:Mm_WildIgnore")
+        if default_tool["rg"] and self._settings["executable('rg')"]:
+            wildignore = self._settings["g:Mm_WildIgnore"]
             # https://github.com/BurntSushi/ripgrep/issues/500
             if os.name == 'nt':
                 color = ""
                 ignore = ""
                 for i in wildignore["dir"]:
                     # rg does not show hidden files by default
-                    if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                    if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                         ignore += ' -g "!%s"' % i
                 for i in wildignore["file"]:
-                    if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                    if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                         ignore += ' -g "!%s"' % i
             else:
                 color = "--color never"
                 ignore = ""
                 for i in wildignore["dir"]:
-                    if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                    if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                         ignore += " -g '!%s'" % i
                 for i in wildignore["file"]:
-                    if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                    if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                         ignore += " -g '!%s'" % i
 
-            if self._nvim.eval("g:Mm_FollowLinks"):
+            if self._settings["g:Mm_FollowLinks"]:
                 followlinks = "-L"
             else:
                 followlinks = ""
 
-            if not self._nvim.eval("g:Mm_ShowHidden"):
+            if not self._settings["g:Mm_ShowHidden"]:
                 show_hidden = ""
             else:
                 show_hidden = "--hidden"
@@ -175,23 +171,23 @@ class FileExplorer:
                 color, ignore, followlinks, show_hidden, no_ignore)
 
         # there is bug on Windows
-        if default_tool["pt"] and self._nvim.eval("executable('pt')") and os.name != 'nt':
-            wildignore = self._nvim.eval("g:Mm_WildIgnore")
+        if default_tool["pt"] and self._settings["executable('pt')"] and os.name != 'nt':
+            wildignore = self._settings["g:Mm_WildIgnore"]
             ignore = ""
             for i in wildignore["dir"]:
                 # pt does not show hidden files by default
-                if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += " --ignore=%s" % i
             for i in wildignore["file"]:
-                if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += " --ignore=%s" % i
 
-            if self._nvim.eval("g:Mm_FollowLinks"):
+            if self._settings["g:Mm_FollowLinks"]:
                 followlinks = "-f"
             else:
                 followlinks = ""
 
-            if not self._nvim.eval("g:Mm_ShowHidden"):
+            if not self._settings["g:Mm_ShowHidden"]:
                 show_hidden = ""
             else:
                 show_hidden = "--hidden"
@@ -204,23 +200,23 @@ class FileExplorer:
             return 'pt --nocolor %s %s %s %s -g="" "%s"' % (ignore, followlinks, show_hidden, no_ignore, dirPath)
 
         # https://github.com/vim/vim/issues/3236
-        if default_tool["ag"] and self._nvim.eval("executable('ag')") and os.name != 'nt':
-            wildignore = self._nvim.eval("g:Mm_WildIgnore")
+        if default_tool["ag"] and self._settings["executable('ag')"] and os.name != 'nt':
+            wildignore = self._settings["g:Mm_WildIgnore"]
             ignore = ""
             for i in wildignore["dir"]:
                 # ag does not show hidden files by default
-                if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += ' --ignore "%s"' % i
             for i in wildignore["file"]:
-                if self._nvim.eval("g:Mm_ShowHidden") or not i.startswith('.'):
+                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += ' --ignore "%s"' % i
 
-            if self._nvim.eval("g:Mm_FollowLinks"):
+            if self._settings["g:Mm_FollowLinks"]:
                 followlinks = "-f"
             else:
                 followlinks = ""
 
-            if not self._nvim.eval("g:Mm_ShowHidden"):
+            if not self._settings["g:Mm_ShowHidden"]:
                 show_hidden = ""
             else:
                 show_hidden = "--hidden"
@@ -233,9 +229,9 @@ class FileExplorer:
             return 'ag --nocolor --silent %s %s %s %s -g "" "%s"' % (
                 ignore, followlinks, show_hidden, no_ignore, dirPath)
 
-        if default_tool["find"] and self._nvim.eval("executable('find')") \
-                and self._nvim.eval("executable('sed')") and os.name != 'nt':
-            wildignore = self._nvim.eval("g:Mm_WildIgnore")
+        if default_tool["find"] and self._settings["executable('find')"] \
+                and self._settings["executable('sed')"] and os.name != 'nt':
+            wildignore = self._settings["g:Mm_WildIgnore"]
             ignore_dir = ""
             for d in wildignore["dir"]:
                 ignore_dir += '-type d -name "%s" -prune -o ' % d
@@ -244,7 +240,7 @@ class FileExplorer:
             for f in wildignore["file"]:
                     ignore_file += '-type f -name "%s" -o ' % f
 
-            if self._nvim.eval("g:Mm_FollowLinks"):
+            if self._settings["g:Mm_FollowLinks"]:
                 followlinks = "-L"
             else:
                 followlinks = ""
@@ -256,7 +252,7 @@ class FileExplorer:
             else:
                 redir_err = " 2>/dev/null"
 
-            if not self._nvim.eval("g:Mm_ShowHidden"):
+            if not self._settings["g:Mm_ShowHidden"]:
                 show_hidden = '-name ".*" -prune -o'
             else:
                 show_hidden = ""
@@ -270,7 +266,8 @@ class FileExplorer:
         os.chdir(rootDir)
 
         cmd = self._tryBuildCmd(rootDir, noIgnore)
-        self._nvim.command("let g:Mm_LastCmd = '%s'" % escQuote(cmd))
+
+        self._lastCommand = cmd
 
         if cmd:
             executor = AsyncExecutor()
@@ -278,7 +275,7 @@ class FileExplorer:
                 fileList = executor.execute(cmd)
             else:
                 fileList = executor.execute(
-                    cmd, encoding=self._nvim.eval("&encoding"))
+                    cmd, encoding=self._settings["&encoding"])
             self._cmdStartTime = time.time()
         else:
             fileList = self._getFilesWithPythonDirectly(rootDir)
