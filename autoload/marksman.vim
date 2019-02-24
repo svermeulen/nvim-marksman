@@ -3,15 +3,12 @@ scriptencoding utf-8
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
 
-function! s:printMatches(candidates, totalCharCount, hasMorePrevious)
-    let maxChars = &columns - a:totalCharCount - 15
-    let charCount = 0
+function! s:getMatchListString(candidates, hasMorePrevious, maxLength)
     let fullMsg = ''
     let charIndex = -1
 
     if a:hasMorePrevious
-        let fullMsg .= '... '
-        let charCount += 4
+        let fullMsg .= '< '
     endif
 
     let firstEntry = 1
@@ -23,18 +20,16 @@ function! s:printMatches(candidates, totalCharCount, hasMorePrevious)
         let firstEntry = 0
 
         let entry .= candidate.name
-        let entryLength = strlen(entry)
 
-        if charCount + entryLength > maxChars
-            let fullMsg .= strpart(entry, 0, maxChars - charCount) . ' ...'
+        if strlen(fullMsg) + strlen(entry) > a:maxLength - 2
+            let fullMsg .= strpart(entry, 0, a:maxLength - 2 - strlen(fullMsg)) . ' >'
             break
         endif
 
         let fullMsg .= entry
-        let charCount += entryLength
     endfor
 
-    echon fullMsg
+    return fullMsg
 endfunction
 
 function! s:clearEcho()
@@ -64,39 +59,60 @@ function! marksman#evalAll(variableNames, evalList)
     return result
 endfunction
 
-function! marksman#run(projectRootPath)
-    let requestId = ''
+function! s:assert(condition, message)
+    if !a:condition
+        throw "vim-marksman: Assert hit: " . a:message
+    endif
+endfunction
 
-    let indent1 = 8
-    let indent2 = 20
+function! s:addPadding(numSpaces)
+    let message = ''
+
+    if a:numSpaces > 0
+        for i in range(1, a:numSpaces)
+            let message .= ' '
+        endfor
+    endif
+
+    return message
+endfunction
+
+function! marksman#run(projectRootPath, ...)
+    let requestId = len(a:000) ? a:1 : ''
+
     let offset = 0
-    let maxAmount = 10
+    let pageSize = 15
+    let leftIndent = 10
+    let rightIndent = 15
 
     while 1
         " Necessary to avoid putting CPU at 100%
         sleep 10m
 
-        let charCount = 0
-        let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, maxAmount)
+        let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, pageSize)
 
         redraw
-        echon requestId
+        " echo ''
+        echon strpart(requestId, 0, leftIndent)
         echohl Cursor
         echon ' '
         echohl NONE
 
-        let charCount += len(requestId) + 1
+        " Keep the same indent regardless of the size of request id
+        echon s:addPadding(leftIndent - strlen(requestId))
 
-        if charCount < indent1
-            for i in range(1, indent1 - charCount)
-                echon ' '
-            endfor
-            let charCount = indent1
-        endif
+        let message = ''
 
-        echon '(' . result.totalCount
+        let footerStart = &columns - rightIndent - leftIndent
+        let progressLength = 4
 
-        let charCount += 1 + len(result.totalCount)
+        let maxMatchesStrLen = footerStart - leftIndent - progressLength
+        let matchesStr = s:getMatchListString(result.matches, offset > 0, maxMatchesStrLen)
+
+        call s:assert(strlen(matchesStr) <= maxMatchesStrLen, string(strlen(matchesStr)) . " <= " . string(maxMatchesStrLen))
+
+        let message .= matchesStr
+        let message .= s:addPadding(strlen(matchesStr) - maxMatchesStrLen)
 
         if result.isUpdating
             let elapsed = reltimefloat(reltime(s:lastProgressTime))
@@ -107,22 +123,18 @@ function! marksman#run(projectRootPath)
             endif
 
             for i in range(0, s:progressIndex)
-                echon '.'
-                let charCount += 1
+                let message .= '.'
             endfor
         endif
 
-        echon ')'
-        let charCount += 1
+        let message .= s:addPadding(footerStart - strlen(message))
 
-        if charCount < indent2
-            for i in range(1, indent2 - charCount)
-                echon ' '
-            endfor
-            let charCount = indent2
-        endif
+        let footer = string(result.matchesCount) . '/' . string(result.totalCount)
 
-        call s:printMatches(result.matches, charCount, offset > 0)
+        let message .= footer
+        echon message
+
+        echon s:addPadding(rightIndent - strlen(footer) - 3) . '|'
 
         let charNo = getchar(1)
 

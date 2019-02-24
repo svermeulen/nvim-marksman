@@ -288,8 +288,6 @@ class FileExplorer:
     def getAllFilesUnderDirectory(self, dirPath, noIgnore):
         os.chdir(dirPath)
 
-        self._log.debug(f'doing things')
-
         if self._settings["exists('g:Mm_ExternalCommand')"]:
             return self._runExternalCommand(
                 self._settings["g:Mm_ExternalCommand"] % dirPath.join('""'))
