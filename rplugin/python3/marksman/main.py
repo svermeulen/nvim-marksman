@@ -9,10 +9,6 @@ from datetime import datetime
 import threading
 from queue import Queue
 
-def escQuote(str):
-    return "" if str is None else str.replace("'", "''")
-
-
 class ProjectInfo:
     def __init__(self):
         self.idMap = ReadWriteLockableValue({})
@@ -61,6 +57,7 @@ class Marksman(object):
         return self._nvim.call("marksman#evalAll", variables, evalNames)
 
     def _debugPrint(self, str):
+        str = str.replace('\\', '\\\\').replace('"', '\\"')
         self._nvim.command(f'echom "{str}"')
 
     def _getFileId(self, name):
@@ -74,7 +71,7 @@ class Marksman(object):
         while True:
             rootPath = self._refreshQueue.get()
 
-            self._nvim.async_call(self._debugPrint, f'Started processing {rootPath}')
+            # self._nvim.async_call(self._debugPrint, f'Started processing "{rootPath}"')
 
             startTime = datetime.now()
             projectInfo = self._getProjectInfo(rootPath)
@@ -106,7 +103,11 @@ class Marksman(object):
                 with projectInfo.totalCount.lock:
                     projectInfo.totalCount.value += 1
 
-            lastCommand = escQuote(self._explorer._lastCommand)
+
+            lastCommand = None
+            if self._explorer._lastCommand:
+                lastCommand = self._explorer._lastCommand.replace("'", "''")
+
             self._nvim.async_call(lambda: self._nvim.command("let g:Mm_LastCmd = '%s'" % lastCommand))
 
             assert projectInfo.isUpdating.getValue()
@@ -114,7 +115,7 @@ class Marksman(object):
 
             elapsed = (datetime.now() - startTime).total_seconds()
 
-            self._nvim.async_call(self._debugPrint, f'Finished processing {rootPath}, took {elapsed} seconds')
+            self._nvim.async_call(self._debugPrint, f'vim-marksman: Finished processing directory "{rootPath}", took {elapsed:0.2f} seconds')
             self._refreshQueue.task_done()
 
     @pynvim.function('MarksmanForceRefresh')
