@@ -191,19 +191,12 @@ function! s:InitVar(var, value)
     endif
 endfunction
 
-call s:InitVar('g:Mm_CacheDirectory', $HOME)
-call s:InitVar('g:Mm_NeedCacheTime', '1.5')
-call s:InitVar('g:Mm_NumberOfCache', 5)
-call s:InitVar('g:Mm_UseMemoryCache', 1)
-call s:InitVar('g:Mm_IndexTimeLimit', 120)
 call s:InitVar('g:Mm_FollowLinks', 0)
 call s:InitVar('g:Mm_WildIgnore', {
             \ 'dir': [],
             \ 'file': []
             \})
-call s:InitVar('g:Mm_UseVersionControlTool', 1)
-call s:InitVar('g:Mm_UseCache', 1)
-call s:InitVar('g:Mm_WorkingDirectory', '')
 call s:InitVar('g:Mm_ShowHidden', 0)
 call s:InitVar('g:Mm_ProgressUpdateInterval', 0.25)
+call s:InitVar('g:Mm_SearchPreferenceOrder', ['git', 'hg', 'rg', 'pt', 'ag', 'find', 'python'])
 

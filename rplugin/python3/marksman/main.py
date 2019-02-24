@@ -4,10 +4,12 @@ import os
 from marksman.util.FileExplorer import FileExplorer
 from marksman.util.LockableValue import LockableValue
 from marksman.util.ReadWriteLockableValue import ReadWriteLockableValue
+from marksman.util.Log import Log
 import os.path
 from datetime import datetime
 import threading
 from queue import Queue
+import traceback
 
 class ProjectInfo:
     def __init__(self):
@@ -29,9 +31,10 @@ class Marksman(object):
             return
 
         self._hasInitialized = True
+        self._log = Log(self._nvim)
         self._refreshQueue = Queue()
         self._projectMap = ReadWriteLockableValue({})
-        self._explorer = FileExplorer(self._getSettings())
+        self._explorer = FileExplorer(self._log, self._getSettings())
         self._printQueue = Queue()
 
         searchThread = threading.Thread(target=self._searchThread)
@@ -41,24 +44,18 @@ class Marksman(object):
 
     def _getSettings(self):
         variables = [
-            'g:Mm_WildIgnore', 'g:Mm_FollowLinks', 'g:Mm_IndexTimeLimit',
-            'g:Mm_ExternalCommand', 'g:Mm_UseVersionControlTool', 'g:Mm_DefaultExternalTool',
-            'g:Mm_ShowHidden',
+            'g:Mm_WildIgnore', 'g:Mm_FollowLinks', 'g:Mm_ExternalCommand', 'g:Mm_ShowHidden',
+            'g:Mm_SearchPreferenceOrder'
         ]
 
         evalNames = [
             "exists('g:Mm_ExternalCommand')", "get(g:, 'Mm_RecurseSubmodules', 0)",
-            "exists('g:Mm_DefaultExternalTool')", "executable('rg')",
-            "executable('pt')", "executable('ag')", "executable('find')",
+            "executable('rg')", "executable('pt')", "executable('ag')", "executable('find')",
             "executable('sed')", "&encoding"
         ]
 
         # Minimize rpcs by just making one call
         return self._nvim.call("marksman#evalAll", variables, evalNames)
-
-    def _debugPrint(self, str):
-        str = str.replace('\\', '\\\\').replace('"', '\\"')
-        self._nvim.command(f'echom "{str}"')
 
     def _getFileId(self, name):
         result = name[0].lower()
@@ -67,11 +64,11 @@ class Marksman(object):
                 result += c.lower()
         return result
 
-    def _searchThread(self):
+    def _searchThreadInternal(self):
         while True:
             rootPath = self._refreshQueue.get()
 
-            # self._nvim.async_call(self._debugPrint, f'Started processing "{rootPath}"')
+            # self._log.debug(f'Started processing "{rootPath}"')
 
             startTime = datetime.now()
             projectInfo = self._getProjectInfo(rootPath)
@@ -103,20 +100,21 @@ class Marksman(object):
                 with projectInfo.totalCount.lock:
                     projectInfo.totalCount.value += 1
 
-
-            lastCommand = None
-            if self._explorer._lastCommand:
-                lastCommand = self._explorer._lastCommand.replace("'", "''")
-
-            self._nvim.async_call(lambda: self._nvim.command("let g:Mm_LastCmd = '%s'" % lastCommand))
-
             assert projectInfo.isUpdating.getValue()
             projectInfo.isUpdating.setValue(False)
 
             elapsed = (datetime.now() - startTime).total_seconds()
 
-            self._nvim.async_call(self._debugPrint, f'vim-marksman: Finished processing directory "{rootPath}", took {elapsed:0.2f} seconds')
+            self._log.debug(f'Finished processing directory "{rootPath}", took {elapsed:0.2f} seconds')
+
             self._refreshQueue.task_done()
+
+    def _searchThread(self):
+        try:
+            self._searchThreadInternal()
+        except Exception as e:
+            self._log.info('yep')
+            self._log.exception(e)
 
     @pynvim.function('MarksmanForceRefresh')
     def forceRefresh(self, args):
