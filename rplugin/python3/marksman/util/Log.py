@@ -1,7 +1,7 @@
 
 import traceback
 
-IncludeDebugging = 1
+IncludeDebugging = 0
 
 # Thread safe logger
 class Log:
