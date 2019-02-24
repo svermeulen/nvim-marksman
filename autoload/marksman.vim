@@ -11,6 +11,8 @@ function! s:getMatchListString(candidates, hasMorePrevious, maxLength)
         let fullMsg .= '< '
     endif
 
+    let maxLength = a:maxLength - 2
+
     let firstEntry = 1
     for candidate in a:candidates
         let entry = ''
@@ -21,8 +23,8 @@ function! s:getMatchListString(candidates, hasMorePrevious, maxLength)
 
         let entry .= candidate.name
 
-        if strlen(fullMsg) + strlen(entry) > a:maxLength - 2
-            let fullMsg .= strpart(entry, 0, a:maxLength - 2 - strlen(fullMsg)) . ' >'
+        if strlen(fullMsg) + strlen(entry) >= maxLength
+            let fullMsg .= strpart(entry, 0, maxLength - strlen(fullMsg)) . ' >'
             break
         endif
 
@@ -79,8 +81,8 @@ endfunction
 
 function! marksman#run(projectRootPath, ...)
     let requestId = len(a:000) ? a:1 : ''
+    let offset = len(a:000) > 1 ? a:2 : 0
 
-    let offset = 0
     let pageSize = 15
     let leftIndent = 10
     let rightIndent = 15
@@ -90,6 +92,7 @@ function! marksman#run(projectRootPath, ...)
         sleep 10m
 
         let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, pageSize)
+        let offset = max([0, min([offset, result.matchesCount - 1])])
 
         redraw
         " echo ''
@@ -108,11 +111,12 @@ function! marksman#run(projectRootPath, ...)
 
         let maxMatchesStrLen = footerStart - leftIndent - progressLength
         let matchesStr = s:getMatchListString(result.matches, offset > 0, maxMatchesStrLen)
+        let matchesStrLen = strlen(matchesStr)
 
-        call s:assert(strlen(matchesStr) <= maxMatchesStrLen, string(strlen(matchesStr)) . " <= " . string(maxMatchesStrLen))
+        call s:assert(matchesStrLen <= maxMatchesStrLen, string(matchesStrLen) . " <= " . string(maxMatchesStrLen))
 
         let message .= matchesStr
-        let message .= s:addPadding(strlen(matchesStr) - maxMatchesStrLen)
+        let message .= s:addPadding(matchesStrLen - maxMatchesStrLen)
 
         if result.isUpdating
             let elapsed = reltimefloat(reltime(s:lastProgressTime))
@@ -151,9 +155,9 @@ function! marksman#run(projectRootPath, ...)
         endif
 
         if char ==# ''
-            " if offset < len(candidates) - 1
-            "     let chosenIndex += 1
-            " endif
+            if offset < result.matchesCount - 1
+                let offset += 1
+            endif
             continue
         endif
 
@@ -173,9 +177,9 @@ function! marksman#run(projectRootPath, ...)
         endif
 
         if char ==# ''
-            " if chosenIndex > 0
-            "     let chosenIndex -= 1
-            " endif
+            if offset > 0
+                let offset -= 1
+            endif
 
             continue
         endif
