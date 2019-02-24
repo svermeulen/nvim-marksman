@@ -1,7 +1,7 @@
 
 import traceback
 
-IncludeDebugging = 0
+IncludeDebugging = 1
 
 # Thread safe logger
 class Log:
@@ -17,19 +17,33 @@ class Log:
     def _echoerr(self, message):
         self._nvim.command(f'echoerr "vim-marksman: {self._escape(message)}"')
 
-    def info(self, message):
+    def queueInfo(self, message):
         self._nvim.async_call(self._echom, message)
 
-    def error(self, message):
+    def info(self, message):
+        self._echom(message)
+
+    def queueError(self, message):
         self._nvim.async_call(self._echoerr, message)
 
-    def exception(self, e):
-        if IncludeDebugging:
-            errorMessage = traceback.format_exc()
-        else:
-            errorMessage = f'Error when running marksman search: {type(e).__name__}: {e}'
+    def error(self, message):
+        self._echoerr(message)
 
-        self.error(errorMessage)
+    def _getExceptionMessage(self, e):
+        if IncludeDebugging:
+            return traceback.format_exc()
+
+        return f'Error when running marksman search: {type(e).__name__}: {e}'
+
+    def queueException(self, e):
+        self._nvim.async_call(self._echoerr, self._getExceptionMessage(e))
+
+    def exception(self, e):
+        self._echoerr(self._getExceptionMessage(e))
+
+    def queueDebug(self, message):
+        if IncludeDebugging:
+            self.queueInfo(message)
 
     def debug(self, message):
         if IncludeDebugging:

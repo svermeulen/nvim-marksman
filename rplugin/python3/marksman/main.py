@@ -5,7 +5,6 @@ from marksman.util.FileExplorer import FileExplorer
 from marksman.util.LockableValue import LockableValue
 from marksman.util.ReadWriteLockableValue import ReadWriteLockableValue
 from marksman.util.Log import Log
-import os.path
 from datetime import datetime
 import threading
 from queue import Queue
@@ -17,11 +16,18 @@ class ProjectInfo:
         self.totalCount = LockableValue(0)
         self.isUpdating = LockableValue(True)
 
+class FileInfo:
+    def __init__(self, path, name):
+        self.path = path
+        self.name = name
+        self.modificationTime = ReadWriteLockableValue(datetime.min)
+
 @pynvim.plugin
 class Marksman(object):
     def __init__(self, nvim):
         self._nvim = nvim
         self._hasInitialized = False
+        self._log = Log(nvim)
 
     def _getCanonicalPath(self, path):
         return os.path.abspath(path)
@@ -31,7 +37,7 @@ class Marksman(object):
             return
 
         self._hasInitialized = True
-        self._log = Log(self._nvim)
+        self._lastOpenTimes = ReadWriteLockableValue({})
         self._refreshQueue = Queue()
         self._projectMap = ReadWriteLockableValue({})
         self._explorer = FileExplorer(self._log, self._getSettings())
@@ -68,7 +74,7 @@ class Marksman(object):
         while True:
             rootPath = self._refreshQueue.get()
 
-            # self._log.debug(f'Started processing "{rootPath}"')
+            # self._log.queueDebug(f'Started processing "{rootPath}"')
 
             startTime = datetime.now()
             projectInfo = self._getProjectInfo(rootPath)
@@ -78,9 +84,9 @@ class Marksman(object):
 
             noIgnore = False  # Do we care about this?
 
-            fileList = self._explorer.getAllFilesUnderDirectory(rootPath, noIgnore)
+            allFileInfos = []
 
-            for path in fileList:
+            for path in self._explorer.getAllFilesUnderDirectory(rootPath, noIgnore):
                 name = os.path.basename(path)
                 path = self._getCanonicalPath(path.strip())
                 id = self._getFileId(name)
@@ -90,22 +96,37 @@ class Marksman(object):
                     fileList = projectInfo.idMap.value.get(id)
 
                 if not fileList:
-                    fileList = LockableValue([])
+                    fileList = ReadWriteLockableValue([])
                     with projectInfo.idMap.writeLock:
                         projectInfo.idMap.value[id] = fileList
 
-                with fileList.lock:
-                    fileList.value.append({'name': name, 'path': path})
+                fileInfo = FileInfo(path, name)
+                allFileInfos.append(fileInfo)
+                with fileList.writeLock:
+                    fileList.value.append(fileInfo)
 
                 with projectInfo.totalCount.lock:
                     projectInfo.totalCount.value += 1
+
+            # Update all the modification times
+            for fileInfo in allFileInfos:
+                modTime = datetime.fromtimestamp(os.path.getmtime(fileInfo.path))
+                with fileInfo.modificationTime.writeLock:
+                    fileInfo.modificationTime.value = modTime
+
+            with projectInfo.idMap.readLock:
+                fileLists = projectInfo.idMap.value.values()
+
+            for fileList in fileLists:
+                with fileList.writeLock:
+                    self._sortFileList(fileList.value)
 
             assert projectInfo.isUpdating.getValue()
             projectInfo.isUpdating.setValue(False)
 
             elapsed = (datetime.now() - startTime).total_seconds()
 
-            self._log.debug(f'Finished processing directory "{rootPath}", took {elapsed:0.2f} seconds')
+            self._log.queueDebug(f'Finished processing directory "{rootPath}", took {elapsed:0.2f} seconds')
 
             self._refreshQueue.task_done()
 
@@ -113,8 +134,7 @@ class Marksman(object):
         try:
             self._searchThreadInternal()
         except Exception as e:
-            self._log.info('yep')
-            self._log.exception(e)
+            self._log.queueException(e)
 
     @pynvim.function('MarksmanForceRefresh')
     def forceRefresh(self, args):
@@ -155,8 +175,63 @@ class Marksman(object):
         if not fileList:
             return [], 0
 
-        with fileList.lock:
+        with fileList.readLock:
             return fileList.value[offset:offset + maxAmount], len(fileList.value)
+
+    def _getFileChangeTime(self, fileInfo):
+        with self._lastOpenTimes.readLock:
+            lastOpenTime = self._lastOpenTimes.value.get(fileInfo.path)
+
+        with fileInfo.modificationTime.readLock:
+            if lastOpenTime:
+                if fileInfo.modificationTime.value:
+                    return max(lastOpenTime, fileInfo.modificationTime.value)
+                return lastOpenTime
+
+            return fileInfo.modificationTime.value
+
+    def _sortFileList(self, fileList):
+        fileList.sort(reverse=True, key=self._getFileChangeTime)
+
+    def _onBufEnterInternal(self, path):
+        self._lazyInit()
+
+        path = self._getCanonicalPath(path)
+        id = self._getFileId(os.path.basename(path))
+
+        with self._lastOpenTimes.writeLock:
+            self._lastOpenTimes.value[path] = datetime.now()
+
+        with self._projectMap.readLock:
+            projectInfos = [x for x in self._projectMap.value.values()]
+
+        for projInfo in projectInfos:
+            with projInfo.idMap.readLock:
+                fileList = projInfo.idMap.value.get(id)
+
+            if not fileList:
+                continue
+
+            found = False
+            with fileList.readLock:
+                for fileInfo in fileList.value:
+                    if fileInfo.path == path:
+                        found = True
+                        break
+
+            if found:
+                with fileList.writeLock:
+                    self._sortFileList(fileList.value)
+
+    @pynvim.autocmd('BufEnter', pattern='*', eval='expand("<afile>")')
+    def onBufEnter(self, path):
+        try:
+            self._onBufEnterInternal(path)
+        except Exception as e:
+            self._log.exception(e)
+
+    def _convertToFileInfoDictionary(self, fileInfo):
+        return {'path': fileInfo.path, 'name': fileInfo.name}
 
     @pynvim.function('MarksmanUpdateSearch', sync=True)
     def updateSearch(self, args):
@@ -177,7 +252,7 @@ class Marksman(object):
             'totalCount': projectInfo.totalCount.getValue(),
             'isUpdating': projectInfo.isUpdating.getValue(),
             'matchesCount': totalMatchesCount,
-            'matches': matchesSlice,
+            'matches': [self._convertToFileInfoDictionary(x) for x in matchesSlice],
         }
 
 

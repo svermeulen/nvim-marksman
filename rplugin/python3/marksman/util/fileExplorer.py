@@ -277,7 +277,7 @@ class FileExplorer:
         return self._runExternalCommand(cmd)
 
     def _runExternalCommand(self, cmd):
-        self._log.debug(f'Running external command "{cmd}"')
+        self._log.queueDebug(f'Running external command "{cmd}"')
         executor = AsyncExecutor()
         if cmd.split(None, 1)[0] == "dir":
             return executor.execute(cmd)
