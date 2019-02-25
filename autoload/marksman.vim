@@ -153,19 +153,12 @@ function! marksman#run(...)
             break
         endif
 
-        if char ==# ''
-            if offset < result.matchesCount - 1
-                let offset += 1
-            endif
-            continue
-        endif
-
         if charNo ==# "\<f5>"
             call MarksmanForceRefresh(projectRootPath)
             continue
         endif
 
-        if charNo ==# "\<c-f7>"
+        if char ==# ''
             let requestId = strpart(requestId, 0, strlen(requestId)-1)
             continue
         endif
@@ -175,11 +168,17 @@ function! marksman#run(...)
             continue
         endif
 
-        if char ==# ''
+        if char ==# ']'
+            if offset < result.matchesCount - 1
+                let offset += 1
+            endif
+            continue
+        endif
+
+        if char ==# '['
             if offset > 0
                 let offset -= 1
             endif
-
             continue
         endif
 
