@@ -80,16 +80,19 @@ class Marksman(object):
             projectInfo = self._getProjectInfo(rootPath)
             projectInfo.totalCount.setValue(0)
             assert projectInfo.isUpdating.getValue()
-            projectInfo.idMap.setValue({})
+
+            allFilesList = ReadWriteLockableValue([])
+
+            projectInfo.idMap.setValue({'': allFilesList})
 
             noIgnore = False  # Do we care about this?
-
-            allFileInfos = []
 
             for path in self._explorer.getAllFilesUnderDirectory(rootPath, noIgnore):
                 name = os.path.basename(path)
                 path = self._getCanonicalPath(path.strip())
                 id = self._getFileId(name)
+
+                assert len(id) > 0
 
                 fileList = None
                 with projectInfo.idMap.readLock:
@@ -101,18 +104,22 @@ class Marksman(object):
                         projectInfo.idMap.value[id] = fileList
 
                 fileInfo = FileInfo(path, name)
-                allFileInfos.append(fileInfo)
+
+                with allFilesList.writeLock:
+                    allFilesList.value.append(fileInfo)
+
                 with fileList.writeLock:
                     fileList.value.append(fileInfo)
 
                 with projectInfo.totalCount.lock:
                     projectInfo.totalCount.value += 1
 
-            # Update all the modification times
-            for fileInfo in allFileInfos:
-                modTime = datetime.fromtimestamp(os.path.getmtime(fileInfo.path))
-                with fileInfo.modificationTime.writeLock:
-                    fileInfo.modificationTime.value = modTime
+            with allFilesList.readLock:
+                # Update all the modification times
+                for fileInfo in allFilesList.value:
+                    modTime = datetime.fromtimestamp(os.path.getmtime(fileInfo.path))
+                    with fileInfo.modificationTime.writeLock:
+                        fileInfo.modificationTime.value = modTime
 
             with projectInfo.idMap.readLock:
                 fileLists = projectInfo.idMap.value.values()
@@ -167,7 +174,7 @@ class Marksman(object):
 
         return info
 
-    def _lookupMatchesSlice(self, projectInfo, requestId, offset, maxAmount):
+    def _lookupMatchesSlice(self, projectInfo, requestId, offset, maxAmount, ignorePath):
 
         with projectInfo.idMap.readLock:
             fileList = projectInfo.idMap.value.get(requestId)
@@ -176,7 +183,7 @@ class Marksman(object):
             return [], 0
 
         with fileList.readLock:
-            return fileList.value[offset:offset + maxAmount], len(fileList.value)
+            return [x for x in fileList.value if x.path != ignorePath][offset:offset + maxAmount], len(fileList.value)
 
     def _getFileChangeTime(self, fileInfo):
         with self._lastOpenTimes.readLock:
@@ -237,16 +244,17 @@ class Marksman(object):
     def updateSearch(self, args):
         self._lazyInit()
 
-        assert len(args) == 4, 'Wrong number of arguments to MarksmanUpdateSearch'
+        assert len(args) == 5, 'Wrong number of arguments to MarksmanUpdateSearch'
 
         rootPath = self._getCanonicalPath(args[0])
         requestId = args[1]
         offset = args[2]
         maxAmount = args[3]
+        ignorePath = self._getCanonicalPath(args[4])
 
         projectInfo = self._getProjectInfo(rootPath)
         matchesSlice, totalMatchesCount = self._lookupMatchesSlice(
-            projectInfo, requestId, offset, maxAmount)
+            projectInfo, requestId, offset, maxAmount, ignorePath)
 
         return {
             'totalCount': projectInfo.totalCount.getValue(),

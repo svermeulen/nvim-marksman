@@ -41,11 +41,6 @@ function! s:clearEcho()
     endfor
 endfunction
 
-function! marksman#runTest()
-    let result = MarksmanUpdateSearch('', '', 3)
-    echom result.totalCount
-endfunction
-
 function! marksman#evalAll(variableNames, evalList)
     let result = {}
     for name in a:variableNames
@@ -86,12 +81,13 @@ function! marksman#run(projectRootPath, ...)
     let pageSize = 15
     let leftIndent = 10
     let rightIndent = 15
+    let currentPath = expand('%:p')
 
     while 1
         " Necessary to avoid putting CPU at 100%
         sleep 10m
 
-        let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, pageSize)
+        let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, pageSize, currentPath)
         let offset = max([0, min([offset, result.matchesCount - 1])])
 
         redraw
