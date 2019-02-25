@@ -1,1 +1,1 @@
-from marksman.main import Marksman
+from marksman.Marksman import Marksman
