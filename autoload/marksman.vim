@@ -74,9 +74,10 @@ function! s:addPadding(numSpaces)
     return message
 endfunction
 
-function! marksman#run(projectRootPath, ...)
-    let requestId = len(a:000) ? a:1 : ''
-    let offset = len(a:000) > 1 ? a:2 : 0
+function! marksman#run(...)
+    let projectRootPath = len(a:000) ? a:1 : getcwd()
+    let requestId = len(a:000) > 1 ? a:2 : ''
+    let offset = len(a:000) > 2 ? a:3 : 0
 
     let pageSize = 15
     let leftIndent = 10
@@ -87,7 +88,7 @@ function! marksman#run(projectRootPath, ...)
         " Necessary to avoid putting CPU at 100%
         sleep 10m
 
-        let result = MarksmanUpdateSearch(a:projectRootPath, requestId, offset, pageSize, currentPath)
+        let result = MarksmanUpdateSearch(projectRootPath, requestId, offset, pageSize, currentPath)
         let offset = max([0, min([offset, result.matchesCount - 1])])
 
         redraw
@@ -122,6 +123,7 @@ function! marksman#run(projectRootPath, ...)
                 let s:lastProgressTime = reltime()
             endif
 
+            let message .= ' '
             for i in range(0, s:progressIndex)
                 let message .= '.'
             endfor
@@ -134,7 +136,8 @@ function! marksman#run(projectRootPath, ...)
         let message .= footer
         echon message
 
-        echon s:addPadding(rightIndent - strlen(footer) - 3) . '|'
+        " for debugging
+        " echon s:addPadding(rightIndent - strlen(footer) - 3) . '|'
 
         let charNo = getchar(1)
 
@@ -158,7 +161,7 @@ function! marksman#run(projectRootPath, ...)
         endif
 
         if charNo ==# "\<f5>"
-            call MarksmanForceRefresh(a:projectRootPath)
+            call MarksmanForceRefresh(projectRootPath)
             continue
         endif
 
@@ -194,9 +197,6 @@ function! marksman#run(projectRootPath, ...)
     endwhile
 endfunction
 
-function! marksman#init()
-endfunction
-
 function! s:InitVar(var, value)
     if !exists(a:var)
         exec 'let '.a:var.'='.string(a:value)
@@ -211,4 +211,6 @@ call s:InitVar('g:Mm_WildIgnore', {
 call s:InitVar('g:Mm_ShowHidden', 0)
 call s:InitVar('g:Mm_ProgressUpdateInterval', 0.25)
 call s:InitVar('g:Mm_SearchPreferenceOrder', ['git', 'hg', 'rg', 'pt', 'ag', 'find', 'python'])
+
+command! -nargs=? Marksman call marksman#run(<q-args>)
 
