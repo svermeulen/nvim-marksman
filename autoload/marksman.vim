@@ -2,6 +2,15 @@ scriptencoding utf-8
 
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
+let s:keyMaps = {
+    \ 'exit': '',
+    \ 'open': '',
+    \ 'scroll_left': '[',
+    \ 'scroll_right': ']',
+    \ 'delete_word': '',
+    \ 'delete_character': '',
+    \ 'refresh': "\<F5>",
+    \}
 
 function! s:getMatchListString(candidates, hasMorePrevious, maxLength)
     let fullMsg = ''
@@ -148,41 +157,41 @@ function! marksman#run(...)
         let charNo = getchar()
         let char = nr2char(charNo)
 
-        if char ==# ''
+        if char ==# s:keyMaps['exit'] || charNo ==# s:keyMaps['exit']
             call s:clearEcho()
             break
         endif
 
-        if charNo ==# "\<f5>"
+        if char ==# s:keyMaps['refresh'] || charNo ==# s:keyMaps['refresh']
             call MarksmanForceRefresh(projectRootPath)
             continue
         endif
 
-        if char ==# ''
+        if char ==# s:keyMaps['delete_character'] || charNo ==# s:keyMaps['delete_character']
             let requestId = strpart(requestId, 0, strlen(requestId)-1)
             continue
         endif
 
-        if char ==# ''
+        if char ==# s:keyMaps['delete_word'] || charNo ==# s:keyMaps['delete_word']
             let requestId = ''
             continue
         endif
 
-        if char ==# ']'
+        if char ==# s:keyMaps['scroll_right'] || charNo ==# s:keyMaps['scroll_right']
             if offset < result.matchesCount - 1
                 let offset += 1
             endif
             continue
         endif
 
-        if char ==# '['
+        if char ==# s:keyMaps['scroll_left'] || charNo ==# s:keyMaps['scroll_left']
             if offset > 0
                 let offset -= 1
             endif
             continue
         endif
 
-        if char ==# ''
+        if char ==# s:keyMaps['open'] || charNo ==# s:keyMaps['open']
             call s:clearEcho()
 
             if !empty(result.matches)
