@@ -15,26 +15,28 @@ def mmOpen(file, mode='r', buffering=-1, encoding=None, errors=None,
 
 
 class FileExplorer:
-    def __init__(self, log, settings):
+    def __init__(self, log, vimSettings):
         self._log = log
-        self._settings = settings
+        self._vimSettings = vimSettings
         self._searchMethods = {
             "rg": self._rgSearch, "hg": self._hgSearch,
             "git": self._gitSearch, "pt": self._ptSearch,
             "find": self._findSearch, "ag": self._agSearch,
+            "python": self._pythonSearch
         }
 
-    def _getFilesWithPythonDirectly(self, rootDir):
-        wildignore = self._settings["g:Mm_WildIgnore"]
+    def _pythonSearch(self, rootDir, noIgnore):
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
         fileList = []
 
-        followlinks = False if not self._settings["g:Mm_FollowLinks"] else True
+        followlinks = False if not self._vimSettings["g:Mm_FollowLinks"] else True
 
         for dirPath, dirs, files in os.walk(rootDir, followlinks=followlinks):
             dirs[:] = [i for i in dirs if True not in (fnmatch.fnmatch(i, j)
-                       for j in wildignore['dir'])]
+                       for j in wildignoreDir)]
             for name in files:
-                if True not in (fnmatch.fnmatch(name, j) for j in wildignore['file']):
+                if True not in (fnmatch.fnmatch(name, j) for j in wildignoreFile):
                     fileList.append(os.path.join(dirPath, name))
         return fileList
 
@@ -82,15 +84,17 @@ class FileExplorer:
         if not self._exists(dirPath, ".hg"):
             return None
 
-        wildignore = self._settings["g:Mm_WildIgnore"]
-        if ".hg" in wildignore["dir"]:
-            wildignore["dir"].remove(".hg")
-        if ".hg" in wildignore["file"]:
-            wildignore["file"].remove(".hg")
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
+
+        if ".hg" in wildignoreDir:
+            wildignoreDir.remove(".hg")
+        if ".hg" in wildignoreFile:
+            wildignoreFile.remove(".hg")
         ignore = ""
-        for i in wildignore["dir"]:
+        for i in wildignoreDir:
             ignore += ' -X "%s"' % self._expandGlob("dir", i)
-        for i in wildignore["file"]:
+        for i in wildignoreFile:
             ignore += ' -X "%s"' % self._expandGlob("file", i)
 
         cmd = 'hg files %s "%s"' % (ignore, dirPath)
@@ -100,15 +104,17 @@ class FileExplorer:
         if not self._exists(dirPath, ".git"):
             return None
 
-        wildignore = self._settings["g:Mm_WildIgnore"]
-        if ".git" in wildignore["dir"]:
-            wildignore["dir"].remove(".git")
-        if ".git" in wildignore["file"]:
-            wildignore["file"].remove(".git")
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
+
+        if ".git" in wildignoreDir:
+            wildignoreDir.remove(".git")
+        if ".git" in wildignoreFile:
+            wildignoreFile.remove(".git")
         ignore = ""
-        for i in wildignore["dir"]:
+        for i in wildignoreDir:
             ignore += ' -x "%s"' % i
-        for i in wildignore["file"]:
+        for i in wildignoreFile:
             ignore += ' -x "%s"' % i
 
         if noIgnore:
@@ -116,7 +122,7 @@ class FileExplorer:
         else:
             no_ignore = "--exclude-standard"
 
-        if self._settings["get(g:, 'Mm_RecurseSubmodules', 0)"]:
+        if self._vimSettings["get(g:, 'Mm_RecurseSubmodules', 0)"]:
             recurse_submodules = "--recurse-submodules"
         else:
             recurse_submodules = ""
@@ -129,25 +135,27 @@ class FileExplorer:
         if os.name == 'nt':
             return None
 
-        if not self._settings["executable('pt')"]:
+        if not self._vimSettings["executable('pt')"]:
             return None
 
-        wildignore = self._settings["g:Mm_WildIgnore"]
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
+
         ignore = ""
-        for i in wildignore["dir"]:
+        for i in wildignoreDir:
             # pt does not show hidden files by default
-            if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+            if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                 ignore += " --ignore=%s" % i
-        for i in wildignore["file"]:
-            if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+        for i in wildignoreFile:
+            if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                 ignore += " --ignore=%s" % i
 
-        if self._settings["g:Mm_FollowLinks"]:
+        if self._vimSettings["g:Mm_FollowLinks"]:
             followlinks = "-f"
         else:
             followlinks = ""
 
-        if not self._settings["g:Mm_ShowHidden"]:
+        if not self._vimSettings["g:Mm_ShowHidden"]:
             show_hidden = ""
         else:
             show_hidden = "--hidden"
@@ -164,19 +172,21 @@ class FileExplorer:
         if os.name == 'nt':
             return None
 
-        if not self._settings["executable('find')"] or not self._settings["executable('sed')"]:
+        if not self._vimSettings["executable('find')"] or not self._vimSettings["executable('sed')"]:
             return None
 
-        wildignore = self._settings["g:Mm_WildIgnore"]
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
+
         ignore_dir = ""
-        for d in wildignore["dir"]:
+        for d in wildignoreDir:
             ignore_dir += '-type d -name "%s" -prune -o ' % d
 
         ignore_file = ""
-        for f in wildignore["file"]:
+        for f in wildignoreFile:
                 ignore_file += '-type f -name "%s" -o ' % f
 
-        if self._settings["g:Mm_FollowLinks"]:
+        if self._vimSettings["g:Mm_FollowLinks"]:
             followlinks = "-L"
         else:
             followlinks = ""
@@ -188,7 +198,7 @@ class FileExplorer:
         else:
             redir_err = " 2>/dev/null"
 
-        if not self._settings["g:Mm_ShowHidden"]:
+        if not self._vimSettings["g:Mm_ShowHidden"]:
             show_hidden = '-name ".*" -prune -o'
         else:
             show_hidden = ""
@@ -198,25 +208,28 @@ class FileExplorer:
         return self._runExternalCommand(cmd)
 
     def _agSearch(self, dirPath, noIgnore):
-        if not self._settings["executable('ag')"] or os.name == 'nt':
+        # TODO - Is it worth getting this working on windows?
+        if not self._vimSettings["executable('ag')"] or os.name == 'nt':
             return None
 
-        wildignore = self._settings["g:Mm_WildIgnore"]
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
+
         ignore = ""
-        for i in wildignore["dir"]:
+        for i in wildignoreDir:
             # ag does not show hidden files by default
-            if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+            if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                 ignore += ' --ignore "%s"' % i
-        for i in wildignore["file"]:
-            if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+        for i in wildignoreFile:
+            if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                 ignore += ' --ignore "%s"' % i
 
-        if self._settings["g:Mm_FollowLinks"]:
+        if self._vimSettings["g:Mm_FollowLinks"]:
             followlinks = "-f"
         else:
             followlinks = ""
 
-        if not self._settings["g:Mm_ShowHidden"]:
+        if not self._vimSettings["g:Mm_ShowHidden"]:
             show_hidden = ""
         else:
             show_hidden = "--hidden"
@@ -232,37 +245,39 @@ class FileExplorer:
 
     def _rgSearch(self, dirPath, noIgnore):
 
-        if not self._settings["executable('rg')"]:
+        if not self._vimSettings["executable('rg')"]:
             return None
 
-        wildignore = self._settings["g:Mm_WildIgnore"]
+        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
+        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
+
         # https://github.com/BurntSushi/ripgrep/issues/500
         if os.name == 'nt':
             color = ""
             ignore = ""
-            for i in wildignore["dir"]:
+            for i in wildignoreDir:
                 # rg does not show hidden files by default
-                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+                if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += ' -g "!%s"' % i
-            for i in wildignore["file"]:
-                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+            for i in wildignoreFile:
+                if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += ' -g "!%s"' % i
         else:
             color = "--color never"
             ignore = ""
-            for i in wildignore["dir"]:
-                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+            for i in wildignoreDir:
+                if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += " -g '!%s'" % i
-            for i in wildignore["file"]:
-                if self._settings["g:Mm_ShowHidden"] or not i.startswith('.'):
+            for i in wildignoreFile:
+                if self._vimSettings["g:Mm_ShowHidden"] or not i.startswith('.'):
                     ignore += " -g '!%s'" % i
 
-        if self._settings["g:Mm_FollowLinks"]:
+        if self._vimSettings["g:Mm_FollowLinks"]:
             followlinks = "-L"
         else:
             followlinks = ""
 
-        if not self._settings["g:Mm_ShowHidden"]:
+        if not self._vimSettings["g:Mm_ShowHidden"]:
             show_hidden = ""
         else:
             show_hidden = "--hidden"
@@ -283,16 +298,16 @@ class FileExplorer:
             return executor.execute(cmd)
 
         return executor.execute(
-            cmd, encoding=self._settings["&encoding"])
+            cmd, encoding=self._vimSettings["&encoding"])
 
     def getAllFilesUnderDirectory(self, dirPath, noIgnore):
         os.chdir(dirPath)
 
-        if self._settings["exists('g:Mm_ExternalCommand')"]:
+        if self._vimSettings["exists('g:Mm_ExternalCommand')"]:
             return self._runExternalCommand(
-                self._settings["g:Mm_ExternalCommand"] % dirPath.join('""'))
+                self._vimSettings["g:Mm_ExternalCommand"] % dirPath.join('""'))
 
-        for searchType in self._settings["g:Mm_SearchPreferenceOrder"]:
+        for searchType in self._vimSettings["g:Mm_SearchPreferenceOrder"]:
             fileList = self._searchMethods[searchType](dirPath, noIgnore)
 
             if fileList:

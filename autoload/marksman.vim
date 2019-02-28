@@ -224,12 +224,10 @@ call s:InitDict('g:Mm_KeyMaps', {
     \ 'refresh': "\<F5>",
     \ })
 
-call s:InitVar('g:Mm_KeyMaps', 0)
+call s:InitVar('g:Mm_EnableDebugLogging', 0)
 call s:InitVar('g:Mm_FollowLinks', 0)
-call s:InitVar('g:Mm_WildIgnore', {
-            \ 'dir': [],
-            \ 'file': []
-            \})
+call s:InitVar('g:Mm_IgnoreDirectoryPatterns', [])
+call s:InitVar('g:Mm_IgnoreFilePatterns', [])
 call s:InitVar('g:Mm_ShowHidden', 0)
 call s:InitVar('g:Mm_ProgressUpdateInterval', 0.25)
 call s:InitVar('g:Mm_SearchPreferenceOrder', ['git', 'hg', 'rg', 'pt', 'ag', 'find', 'python'])

@@ -27,7 +27,6 @@ class Marksman(object):
     def __init__(self, nvim):
         self._nvim = nvim
         self._hasInitialized = False
-        self._log = Log(nvim)
 
     def _getCanonicalPath(self, path):
         return os.path.abspath(path)
@@ -37,10 +36,12 @@ class Marksman(object):
             return
 
         self._hasInitialized = True
+        self._vimSettings = self._getSettings()
+        self._log = Log(self._nvim, self._vimSettings['g:Mm_EnableDebugLogging'] != 0)
         self._lastOpenTimes = ReadWriteLockableValue({})
         self._refreshQueue = Queue()
         self._projectMap = ReadWriteLockableValue({})
-        self._explorer = FileExplorer(self._log, self._getSettings())
+        self._explorer = FileExplorer(self._log, self._vimSettings)
         self._printQueue = Queue()
 
         searchThread = threading.Thread(target=self._searchThread)
@@ -50,8 +51,9 @@ class Marksman(object):
 
     def _getSettings(self):
         variables = [
-            'g:Mm_WildIgnore', 'g:Mm_FollowLinks', 'g:Mm_ExternalCommand', 'g:Mm_ShowHidden',
-            'g:Mm_SearchPreferenceOrder'
+            'g:Mm_IgnoreDirectoryPatterns', 'g:Mm_IgnoreFilePatterns', 'g:Mm_FollowLinks', 
+            'g:Mm_ExternalCommand', 'g:Mm_ShowHidden', 'g:Mm_SearchPreferenceOrder',
+            'g:Mm_EnableDebugLogging'
         ]
 
         evalNames = [

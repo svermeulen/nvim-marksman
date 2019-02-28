@@ -29,21 +29,70 @@ Note also that Marksman will cache the results in memory, so if you add files du
 
 # Keys
 
-* `<esc>` - Cancel Marksman
-* `<enter>` - Open the selected file
-* `<c-w>` - Clear the current typed shorthand
-* `<c-h>` - Delete one character
-* `]` - Cycle the list forward
-* `[` - Cycle the list backwards
-* `<F5>` - Re-scan the file system
+After launching Marksman:
 
-# Options
+| Command               | Default       | Description
+| -------               | -----------   | -----------
+| `exit`                | `\<ESC>`      | Cancel Marksman
+| `open`                | `\<ENTER>`    | Open the selected file
+| `scroll_left`         | `[`           | Scroll the list backward
+| `scroll_right`        | `]`           | Scroll the list forward
+| `delete_word`         | `\<C-W>`      | Clear the current typed shorthand
+| `delete_character`    | `\<C-H>`      | Delete one character
+| `refresh`             | `\<F5>`       | Quit Marksman
 
-# Options
+# Example Config
 
-TBD
+You can include the following customization in your .vimrc.  Note that the values below are already set as the default so including this same code would have no effect:
+
+```viml
+" You might want to experiment with this order to see for yourself which one is fastest
+" If you set g:Mm_EnableDebugLogging to 1 then use Marksman in a big project, then open
+" :messages you can see timing information
+let g:Mm_SearchPreferenceOrder = ['git', 'hg', 'rg', 'pt', 'ag', 'find', 'python']
+
+" Add patterns for directories that you do not want Marksman to traverse for files
+" For example:
+" let g:Mm_IgnoreDirectoryPatterns = ['.svn', '.git', 'bin', 'obj', '*temp*']
+let g:Mm_IgnoreDirectoryPatterns = []
+
+" Add patterns for files that you do not want to be included in the Marksman list
+" For example:
+" let g:Mm_IgnoreFilePatterns = ['*.meta', '*.lua']
+let g:Mm_IgnoreFilePatterns = []
+
+" Override the default key mappings to control the Marksman window
+" Note that you only need to include the ones you want to override.  If a given action is
+" not specified it will use the defaults listed here
+let g:Mm_KeyMaps = {
+    \ 'exit': "\<esc>",
+    \ 'open': "\<enter>",
+    \ 'scroll_left': "[",
+    \ 'scroll_right': "]",
+    \ 'delete_word': "\<c-w>",
+    \ 'delete_character': "\<c-h>",
+    \ 'refresh': "\<F5>",
+    \ }
+
+" When set to 1, you will see files like '.gitignore', '.vimrc' or folders like '.config', '.git', etc.
+" Note that you can set this to true and then add special cases to the g:Mm_IgnorePatterns list
+" For example, you might want to see hidden 
+let g:Mm_ShowHidden = 0
+
+" You can also optionally supply your own external command to use to get the list of files
+" It will just need to return a newline seperated list of absolute paths
+" Note that when Mm_ExternalCommand is set, Mm_SearchPreferenceOrder, Mm_FollowLinks, 
+" Mm_IgnoreDirectoryPatterns, and Mm_IgnoreFilePatterns settings are ignored
+" let g:Mm_ExternalCommand = 'my/custom/file_search.exe'
+
+" When set to 1, directories that are symbolic links will be traversed
+let g:Mm_FollowLinks = 0
+
+" Set to 1 to see detailed debug output to :messages
+let g:Mm_EnableDebugLogging = 0
+```
 
 # Credits
 
-The code to do the async search in python was shamelessly stolen from [Leaderf](https://github.com/Yggdroot/LeaderF) (thanks @Yggdroot)
+A lot of things for this plugin were shamelessly stolen from [Leaderf](https://github.com/Yggdroot/LeaderF) (thanks @Yggdroot)
 

@@ -1,12 +1,11 @@
 
 import traceback
 
-IncludeDebugging = 0
-
 # Thread safe logger
 class Log:
-    def __init__(self, nvim):
+    def __init__(self, nvim, includeDebugging):
         self._nvim = nvim
+        self._includeDebugging = includeDebugging
 
     def _escape(self, message):
         return message.replace('\\', '\\\\').replace('"', '\\"')
@@ -30,7 +29,7 @@ class Log:
         self._echoerr(message)
 
     def _getExceptionMessage(self, e):
-        if IncludeDebugging:
+        if self._includeDebugging:
             return traceback.format_exc()
 
         return f'Error when running marksman search: {type(e).__name__}: {e}'
@@ -42,10 +41,10 @@ class Log:
         self._echoerr(self._getExceptionMessage(e))
 
     def queueDebug(self, message):
-        if IncludeDebugging:
+        if self._includeDebugging:
             self.queueInfo(message)
 
     def debug(self, message):
-        if IncludeDebugging:
+        if self._includeDebugging:
             self.info(message)
 
