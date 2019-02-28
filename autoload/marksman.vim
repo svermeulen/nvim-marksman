@@ -2,15 +2,6 @@ scriptencoding utf-8
 
 let s:progressIndex = 0
 let s:lastProgressTime = reltime()
-let s:keyMaps = {
-    \ 'exit': '',
-    \ 'open': '',
-    \ 'scroll_left': '[',
-    \ 'scroll_right': ']',
-    \ 'delete_word': '',
-    \ 'delete_character': '',
-    \ 'refresh': "\<F5>",
-    \}
 
 function! s:getMatchListString(candidates, hasMorePrevious, maxLength)
     let fullMsg = ''
@@ -157,41 +148,41 @@ function! marksman#run(...)
         let charNo = getchar()
         let char = nr2char(charNo)
 
-        if char ==# s:keyMaps['exit'] || charNo ==# s:keyMaps['exit']
+        if char ==# g:Mm_KeyMaps['exit'] || charNo ==# g:Mm_KeyMaps['exit']
             call s:clearEcho()
             break
         endif
 
-        if char ==# s:keyMaps['refresh'] || charNo ==# s:keyMaps['refresh']
+        if char ==# g:Mm_KeyMaps['refresh'] || charNo ==# g:Mm_KeyMaps['refresh']
             call MarksmanForceRefresh(projectRootPath)
             continue
         endif
 
-        if char ==# s:keyMaps['delete_character'] || charNo ==# s:keyMaps['delete_character']
+        if char ==# g:Mm_KeyMaps['delete_character'] || charNo ==# g:Mm_KeyMaps['delete_character']
             let requestId = strpart(requestId, 0, strlen(requestId)-1)
             continue
         endif
 
-        if char ==# s:keyMaps['delete_word'] || charNo ==# s:keyMaps['delete_word']
+        if char ==# g:Mm_KeyMaps['delete_word'] || charNo ==# g:Mm_KeyMaps['delete_word']
             let requestId = ''
             continue
         endif
 
-        if char ==# s:keyMaps['scroll_right'] || charNo ==# s:keyMaps['scroll_right']
+        if char ==# g:Mm_KeyMaps['scroll_right'] || charNo ==# g:Mm_KeyMaps['scroll_right']
             if offset < result.matchesCount - 1
                 let offset += 1
             endif
             continue
         endif
 
-        if char ==# s:keyMaps['scroll_left'] || charNo ==# s:keyMaps['scroll_left']
+        if char ==# g:Mm_KeyMaps['scroll_left'] || charNo ==# g:Mm_KeyMaps['scroll_left']
             if offset > 0
                 let offset -= 1
             endif
             continue
         endif
 
-        if char ==# s:keyMaps['open'] || charNo ==# s:keyMaps['open']
+        if char ==# g:Mm_KeyMaps['open'] || charNo ==# g:Mm_KeyMaps['open']
             call s:clearEcho()
 
             if !empty(result.matches)
@@ -211,6 +202,29 @@ function! s:InitVar(var, value)
     endif
 endfunction
 
+function! s:InitDict(var, dict)
+    if !exists(a:var)
+        exec 'let '.a:var.'='.string(a:dict)
+    else
+        let tmp = a:dict
+        for [key, value] in items(eval(a:var))
+            let tmp[key] = value
+        endfor
+        exec 'let '.a:var.'='.string(tmp)
+    endif
+endfunction
+
+call s:InitDict('g:Mm_KeyMaps', {
+    \ 'exit': "\<esc>",
+    \ 'open': "\<enter>",
+    \ 'scroll_left': "[",
+    \ 'scroll_right': "]",
+    \ 'delete_word': "\<c-w>",
+    \ 'delete_character': "\<c-h>",
+    \ 'refresh': "\<F5>",
+    \ })
+
+call s:InitVar('g:Mm_KeyMaps', 0)
 call s:InitVar('g:Mm_FollowLinks', 0)
 call s:InitVar('g:Mm_WildIgnore', {
             \ 'dir': [],
