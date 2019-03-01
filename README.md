@@ -104,7 +104,7 @@ let g:Mm_FollowLinks = 0
 
 # Profiling Search Methods
 
-You might wonder what is the optimial value for `g:Mm_SearchPreferenceOrder` for your specific machine.  You can find out by running `MarksmanProfileSearchMethods [PATH_TO_PROCESS]` where `[PATH_TO_PROCESS]` is replaced by a path to a directory with a large amount of files.  This will try all the different search methods (rg, ag, etc.) one at a time and report the time each one took.  This command can also be useful as a way of debugging to make sure you have the tools installed correctly.
+You might wonder what is the optimial value for `g:Mm_SearchPreferenceOrder` for your specific machine.  You can find out by running `MarksmanProfileSearchMethods [MY_PATH]` where `[MY_PATH]` is replaced by a path to a directory with a large amount of files.  This will try all the different search methods (rg, ag, etc.) one at a time and report the time each one took.  This command can also be useful as a way of debugging to make sure you have the tools installed correctly.
 
 # Credits
 
