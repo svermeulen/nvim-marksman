@@ -1,6 +1,7 @@
 
 import pynvim
 import os
+from marksman.util.StringHumpsFinder import getStringHumps
 from marksman.util.AsyncCommandExecutor import AsyncCommandExecutor
 from marksman.util.PythonSearchHandler import PythonSearchHandler
 from marksman.util.SearchExternalCommandBuilder import SearchExternalCommandBuilder, SearchTypes as ExternalSearchTypes
@@ -104,6 +105,10 @@ class Marksman(object):
             'matches': [self._convertToFileInfoDictionary(x) for x in matchesSlice],
         }
 
+    def _getFileNameHumps(self, fileName):
+        fileNameWithoutExtension = os.path.splitext(os.path.basename(fileName))[0]
+        return getStringHumps(fileNameWithoutExtension)
+
     def _getCanonicalPath(self, path):
         return os.path.abspath(path)
 
@@ -141,13 +146,6 @@ class Marksman(object):
 
         # Minimize rpcs by just making one call
         return self._nvim.call("marksman#evalAll", variables, evalNames)
-
-    def _getFileId(self, name):
-        result = name[0].lower()
-        for c in name[1:]:
-            if c.isupper():
-                result += c.lower()
-        return result
 
     def _tryScanForFilesUsingSearchType(self, searchType, dirPath, noIgnore):
         os.chdir(dirPath)
@@ -201,7 +199,7 @@ class Marksman(object):
             for path in self._scanForFiles(rootPath, noIgnore):
                 name = os.path.basename(path)
                 path = self._getCanonicalPath(path.strip())
-                id = self._getFileId(name)
+                id = self._getFileNameHumps(name)
 
                 assert len(id) > 0
 
@@ -299,7 +297,7 @@ class Marksman(object):
         self._lazyInit()
 
         path = self._getCanonicalPath(path)
-        id = self._getFileId(os.path.basename(path))
+        id = self._getFileNameHumps(os.path.basename(path))
 
         with self._lastOpenTimes.writeLock:
             self._lastOpenTimes.value[path] = datetime.now()
