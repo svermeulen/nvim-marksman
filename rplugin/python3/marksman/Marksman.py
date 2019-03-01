@@ -226,7 +226,13 @@ class Marksman(object):
             with allFilesList.readLock:
                 # Update all the modification times
                 for fileInfo in allFilesList.value:
-                    modTime = datetime.fromtimestamp(os.path.getmtime(fileInfo.path))
+                    try:
+                        # This can fail sometimes
+                        # For example, when using git, deleted files can be listed
+                        modTime = datetime.fromtimestamp(os.path.getmtime(fileInfo.path))
+                    except Exception as e:
+                        continue
+
                     with fileInfo.modificationTime.writeLock:
                         fileInfo.modificationTime.value = modTime
 

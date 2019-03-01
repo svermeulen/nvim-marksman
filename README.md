@@ -7,7 +7,7 @@ Marksman is a file finder.  However, it is not a fuzzy file finder like [CtrlP](
 
 This shorthand is chosen based on the 'humps' in the file name.  For example, the files "FooBar.py", "fooBar.cpp" and "foo_bar.txt" will have a generated shorthand 'fb'.  So in order to select this file you would execute Marksman, then type 'fb' then press enter.
 
-Note that it is meant to be used alongside a fuzzy finder, for cases where you already know the exact name of the file you want to go to and want to get there in the fewest keystrokes possible.
+Note that it is not meant as a replacement for a fuzzy finder.  It is meant for cases where you already know the exact name of the file you want to go to and want to get there in the fewest keystrokes possible.
 
 # Installation
 
@@ -20,6 +20,12 @@ Plug 'svermeulen/nvim-marksman', { 'do': ':UpdateRemotePlugins' }
 # Usage
 
 To run, execute the command `:Marksman`.  By default this will run in the current working directly.  You can also specify the directory explicitly, for example by running `:Marksman C:/Foo/Bar`.
+
+You might want to bind a command to it, for example:
+
+```
+nnoremap <leader>m :<c-u>Marksman<cr>
+```
 
 When it is initially run it will asynchronously populate the list of files by scanning the given directory.  It will attempt to use external commands such as [rg](https://github.com/BurntSushi/ripgrep), [ag](https://github.com/ggreer/the_silver_searcher), `pt`, and `find`, or if none of those can be found then it will just directly search inside python.
 
