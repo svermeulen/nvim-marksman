@@ -17,6 +17,8 @@ If using [vim-plug](https://github.com/junegunn/vim-plug) then you can install w
 Plug 'svermeulen/nvim-marksman', { 'do': ':UpdateRemotePlugins' }
 ```
 
+![example](https://i.imgur.com/sFe4v0y.gif)
+
 # Usage
 
 To run, execute the command `:Marksman`.  By default this will run in the current working directly.  You can also specify the directory explicitly, for example by running `:Marksman C:/Foo/Bar`.

@@ -201,7 +201,8 @@ class Marksman(object):
                 path = self._getCanonicalPath(path.strip())
                 id = self._getFileNameHumps(name)
 
-                assert len(id) > 0
+                if len(id) == 0:
+                    continue
 
                 fileList = None
                 with projectInfo.idMap.readLock:
