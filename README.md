@@ -35,7 +35,7 @@ What it looks like:  (note the text in the status bar)
 
 When it is initially run it will asynchronously populate the list of files by scanning the given directory.  It will attempt to use external commands such as [rg](https://github.com/BurntSushi/ripgrep), [ag](https://github.com/ggreer/the_silver_searcher), `pt`, and `find`, or if none of those can be found then it will just directly search inside python.
 
-Once it has started populating the list of the files, you can start typing the humps of the file that you are looking for.  In some cases there might be multiple matches, in which case you can cycle between the list by pressing `<c-l>` or `<c-h>` (note that this is also configurable below).  Once you have found the file you are looking for, press enter to open it.
+Once it has started populating the list of the files, you can start typing the humps of the file that you are looking for.  In some cases there might be multiple matches, in which case you can cycle between the list by pressing `[` or `]` (note that this is also configurable below).  Once you have found the file you are looking for, press enter to open it.
 
 Note that Marksman will try to choose an intelligent order to present the files in.  By default this will be chosen based on the file modification time and also the last time the file was opened in vim (whichever is more recent)
 
