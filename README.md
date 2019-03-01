@@ -39,6 +39,8 @@ Note that Marksman will try to choose an intelligent order to present the files 
 
 Note also that Marksman will cache the results in memory, so if you add files during your vim session you need to force refresh Marksman by pressing `<F5>` in order for the new files to show up.
 
+When it is first opened, it might take some time to populate the full list of files.  Note that if you look at the right side of the status bar you can see the current amount of files it has cached.
+
 # Keys
 
 After launching Marksman:
