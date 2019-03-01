@@ -27,7 +27,7 @@ You might want to bind a command to it, for example:
 nnoremap <leader>m :<c-u>Marksman<cr>
 ```
 
-What it looks like:
+What it looks like:  (note the text in the status bar)
 
 ![example](https://i.imgur.com/sFe4v0y.gif)
 
