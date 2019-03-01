@@ -17,8 +17,6 @@ If using [vim-plug](https://github.com/junegunn/vim-plug) then you can install w
 Plug 'svermeulen/nvim-marksman', { 'do': ':UpdateRemotePlugins' }
 ```
 
-![example](https://i.imgur.com/sFe4v0y.gif)
-
 # Usage
 
 To run, execute the command `:Marksman`.  By default this will run in the current working directly.  You can also specify the directory explicitly, for example by running `:Marksman C:/Foo/Bar`.
@@ -28,6 +26,10 @@ You might want to bind a command to it, for example:
 ```
 nnoremap <leader>m :<c-u>Marksman<cr>
 ```
+
+What it looks like:
+
+![example](https://i.imgur.com/sFe4v0y.gif)
 
 When it is initially run it will asynchronously populate the list of files by scanning the given directory.  It will attempt to use external commands such as [rg](https://github.com/BurntSushi/ripgrep), [ag](https://github.com/ggreer/the_silver_searcher), `pt`, and `find`, or if none of those can be found then it will just directly search inside python.
 
