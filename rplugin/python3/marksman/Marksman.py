@@ -129,12 +129,12 @@ class Marksman(object):
     def _getSettings(self):
         variables = [
             'g:Mm_IgnoreDirectoryPatterns', 'g:Mm_IgnoreFilePatterns', 'g:Mm_FollowLinks',
-            'g:Mm_ExternalCommand', 'g:Mm_ShowHidden', 'g:Mm_SearchPreferenceOrder',
+            'g:Mm_CustomSearchCommand', 'g:Mm_ShowHidden', 'g:Mm_SearchPreferenceOrder',
             'g:Mm_EnableDebugLogging'
         ]
 
         evalNames = [
-            "exists('g:Mm_ExternalCommand')", "get(g:, 'Mm_RecurseSubmodules', 0)",
+            "exists('g:Mm_CustomSearchCommand')", "get(g:, 'Mm_RecurseSubmodules', 0)",
             "executable('rg')", "executable('pt')", "executable('ag')", "executable('find')",
             "executable('sed')", "&encoding"
         ]
@@ -157,10 +157,10 @@ class Marksman(object):
             return self._pythonSearchHandler.scanForFiles(dirPath, noIgnore)
 
         if searchType == "custom":
-            if not self._vimSettings["exists('g:Mm_ExternalCommand')"]:
+            if not self._vimSettings["exists('g:Mm_CustomSearchCommand')"]:
                 return None
 
-            cmd = self._vimSettings["g:Mm_ExternalCommand"] % dirPath.join('""')
+            cmd = self._vimSettings["g:Mm_CustomSearchCommand"] % dirPath.join('""')
         else:
             cmd = self._searchCommandBuilder.tryBuildExternalSearchCommand(
                 searchType, dirPath, noIgnore)

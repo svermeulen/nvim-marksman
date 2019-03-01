@@ -47,18 +47,17 @@ You can include the following customization in your .vimrc.  Note that the value
 
 ```viml
 " You might want to experiment with this order to see for yourself which one is fastest
-" If you set g:Mm_EnableDebugLogging to 1 then use Marksman in a big project, then open
-" :messages you can see timing information
+" 'custom' will try and use g:Mm_CustomSearchCommand if it is set (see below)
 let g:Mm_SearchPreferenceOrder = ['custom', 'git', 'hg', 'rg', 'pt', 'ag', 'find', 'python']
 
 " Add patterns for directories that you do not want Marksman to traverse for files
 " For example:
-" let g:Mm_IgnoreDirectoryPatterns = ['.svn', '.git', 'bin', 'obj', '*temp*']
+" let g:Mm_IgnoreDirectoryPatterns = ['bin', 'obj', '*temp*', '.git']
 let g:Mm_IgnoreDirectoryPatterns = []
 
 " Add patterns for files that you do not want to be included in the Marksman list
 " For example:
-" let g:Mm_IgnoreFilePatterns = ['*.meta', '*.lua']
+" let g:Mm_IgnoreFilePatterns = ['*.pyc', '*.bin', '*.zip']
 let g:Mm_IgnoreFilePatterns = []
 
 " Override the default key mappings to control the Marksman window
@@ -75,21 +74,18 @@ let g:Mm_KeyMaps = {
     \ }
 
 " When set to 1, you will see files like '.gitignore', '.vimrc' or folders like '.config', '.git', etc.
-" Note that you can set this to true and then add special cases to the g:Mm_IgnorePatterns list
-" For example, you might want to see hidden 
+" Note that you can also set this to true and then add special cases to the g:Mm_IgnorePatterns list
 let g:Mm_ShowHidden = 0
-
-" You can also optionally supply your own external command to use to get the list of files
-" It will just need to return a newline seperated list of absolute paths
-" Note that when Mm_ExternalCommand is set, Mm_SearchPreferenceOrder, Mm_FollowLinks, 
-" Mm_IgnoreDirectoryPatterns, and Mm_IgnoreFilePatterns settings are ignored
-" let g:Mm_ExternalCommand = 'my/custom/file_search.exe'
 
 " When set to 1, directories that are symbolic links will be traversed
 let g:Mm_FollowLinks = 0
 
-" Set to 1 to see detailed debug output to :messages
-let g:Mm_EnableDebugLogging = 0
+" You can also optionally supply your own external command to use to get the list of files
+" It will just need to return a newline seperated list of absolute paths
+" Note that when Mm_CustomSearchCommand is set, Mm_SearchPreferenceOrder, Mm_FollowLinks, 
+" Mm_IgnoreDirectoryPatterns, and Mm_IgnoreFilePatterns settings are ignored
+" Also note that it will only run based on where 'custom' is in g:Mm_SearchPreferenceOrder
+" let g:Mm_CustomSearchCommand = 'my/custom/file_search.exe'
 ```
 
 # Credits
