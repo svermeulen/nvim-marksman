@@ -27,7 +27,7 @@ def lfBytes2Str(bytes, encoding=None):
         return bytes.decode(errors="ignore")
 
 
-class AsyncExecutor(object):
+class AsyncCommandExecutor(object):
     """
     A class to implement executing a command in subprocess, then
     read the output asynchronously.
@@ -79,7 +79,7 @@ class AsyncExecutor(object):
 
         stdout_thread.join(0.01)
 
-        result = AsyncExecutor.Result(self._outQueue, self._errQueue, encoding, cleanup, self._process)
+        result = AsyncCommandExecutor.Result(self._outQueue, self._errQueue, encoding, cleanup, self._process)
 
         return result
 
@@ -135,7 +135,7 @@ class AsyncExecutor(object):
 
 
 if __name__ == "__main__":
-    executor = AsyncExecutor()
+    executor = AsyncCommandExecutor()
     # out = executor.execute("D:/Utils/ctags58/ctags.exe -f- -R")
     os.chdir("D:/Projects/neovim")
     out = executor.execute("git ls-files && git ls-files --others")

@@ -5,40 +5,36 @@ import re
 import os
 import os.path
 import fnmatch
-import time
-from .AsyncExecutor import AsyncExecutor
 
+SearchTypes = ["rg", "hg", "git", "pt", "find", "ag"]
 
-def mmOpen(file, mode='r', buffering=-1, encoding=None, errors=None,
-           newline=None, closefd=True):
-    return open(file, mode, buffering, encoding, errors, newline, closefd)
-
-
-class FileExplorer:
-    def __init__(self, log, vimSettings):
-        self._log = log
+class SearchExternalCommandBuilder:
+    def __init__(self, vimSettings):
         self._vimSettings = vimSettings
-        self._searchMethods = {
-            "rg": self._rgSearch, "hg": self._hgSearch,
-            "git": self._gitSearch, "pt": self._ptSearch,
-            "find": self._findSearch, "ag": self._agSearch,
-            "python": self._pythonSearch
-        }
 
-    def _pythonSearch(self, rootDir, noIgnore):
-        wildignoreDir = self._vimSettings["g:Mm_IgnoreDirectoryPatterns"]
-        wildignoreFile = self._vimSettings["g:Mm_IgnoreFilePatterns"]
-        fileList = []
+    def tryBuildExternalSearchCommand(self, searchType, rootDir, noIgnore):
+        if searchType == "rg":
+            return self._rgSearch(rootDir, noIgnore)
 
-        followlinks = False if not self._vimSettings["g:Mm_FollowLinks"] else True
+        if searchType == "hg":
+            return self._hgSearch(rootDir, noIgnore)
 
-        for dirPath, dirs, files in os.walk(rootDir, followlinks=followlinks):
-            dirs[:] = [i for i in dirs if True not in (fnmatch.fnmatch(i, j)
-                       for j in wildignoreDir)]
-            for name in files:
-                if True not in (fnmatch.fnmatch(name, j) for j in wildignoreFile):
-                    fileList.append(os.path.join(dirPath, name))
-        return fileList
+        if searchType == "git":
+            return self._gitSearch(rootDir, noIgnore)
+
+        if searchType == "pt":
+            return self._ptSearch(rootDir, noIgnore)
+
+        if searchType == "find":
+            return self._findSearch(rootDir, noIgnore)
+
+        if searchType == "ag":
+            return self._agSearch(rootDir, noIgnore)
+
+        if searchType == "python":
+            return self._pythonSearch(rootDir, noIgnore)
+
+        assert False, f'Invalid search type "{searchType}"'
 
     def _exists(self, path, dirPath):
         """
@@ -97,8 +93,7 @@ class FileExplorer:
         for i in wildignoreFile:
             ignore += ' -X "%s"' % self._expandGlob("file", i)
 
-        cmd = 'hg files %s "%s"' % (ignore, dirPath)
-        return self._runExternalCommand(cmd)
+        return 'hg files %s "%s"' % (ignore, dirPath)
 
     def _gitSearch(self, dirPath, noIgnore):
         if not self._exists(dirPath, ".git"):
@@ -127,8 +122,7 @@ class FileExplorer:
         else:
             recurse_submodules = ""
 
-        cmd = "git ls-files %s && git ls-files --others %s %s" % (recurse_submodules, no_ignore, ignore)
-        return self._runExternalCommand(cmd)
+        return "git ls-files %s && git ls-files --others %s %s" % (recurse_submodules, no_ignore, ignore)
 
     def _ptSearch(self, dirPath, noIgnore):
         # there is bug on Windows
@@ -165,8 +159,7 @@ class FileExplorer:
         else:
             no_ignore = ""
 
-        cmd = 'pt --nocolor %s %s %s %s -g="" "%s"' % (ignore, followlinks, show_hidden, no_ignore, dirPath)
-        return self._runExternalCommand(cmd)
+        return 'pt --nocolor %s %s %s %s -g="" "%s"' % (ignore, followlinks, show_hidden, no_ignore, dirPath)
 
     def _findSearch(self, dirPath, noIgnore):
         if os.name == 'nt':
@@ -203,9 +196,8 @@ class FileExplorer:
         else:
             show_hidden = ""
 
-        cmd = 'find %s "%s" -name "." -o %s %s %s -type f -print %s %s' % (
+        return 'find %s "%s" -name "." -o %s %s %s -type f -print %s %s' % (
             followlinks, dirPath, ignore_dir, ignore_file, show_hidden, redir_err, strip)
-        return self._runExternalCommand(cmd)
 
     def _agSearch(self, dirPath, noIgnore):
         # TODO - Is it worth getting this working on windows?
@@ -239,9 +231,8 @@ class FileExplorer:
         else:
             no_ignore = ""
 
-        cmd = 'ag --nocolor --silent %s %s %s %s -g "" "%s"' % (
+        return 'ag --nocolor --silent %s %s %s %s -g "" "%s"' % (
             ignore, followlinks, show_hidden, no_ignore, dirPath)
-        return self._runExternalCommand(cmd)
 
     def _rgSearch(self, dirPath, noIgnore):
 
@@ -287,30 +278,6 @@ class FileExplorer:
         else:
             no_ignore = ""
 
-        cmd = 'rg --no-messages --files %s %s %s %s %s' % (
+        return 'rg --no-messages --files %s %s %s %s %s' % (
             color, ignore, followlinks, show_hidden, no_ignore)
-        return self._runExternalCommand(cmd)
 
-    def _runExternalCommand(self, cmd):
-        self._log.queueDebug(f'Running external command "{cmd}"')
-        executor = AsyncExecutor()
-        if cmd.split(None, 1)[0] == "dir":
-            return executor.execute(cmd)
-
-        return executor.execute(
-            cmd, encoding=self._vimSettings["&encoding"])
-
-    def getAllFilesUnderDirectory(self, dirPath, noIgnore):
-        os.chdir(dirPath)
-
-        if self._vimSettings["exists('g:Mm_ExternalCommand')"]:
-            return self._runExternalCommand(
-                self._vimSettings["g:Mm_ExternalCommand"] % dirPath.join('""'))
-
-        for searchType in self._vimSettings["g:Mm_SearchPreferenceOrder"]:
-            fileList = self._searchMethods[searchType](dirPath, noIgnore)
-
-            if fileList:
-                return fileList
-
-        assert False, "Could not find valid search type!"

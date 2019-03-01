@@ -1,7 +1,9 @@
 
 import pynvim
 import os
-from marksman.util.FileExplorer import FileExplorer
+from marksman.util.AsyncCommandExecutor import AsyncCommandExecutor
+from marksman.util.PythonSearchHandler import PythonSearchHandler
+from marksman.util.SearchExternalCommandBuilder import SearchExternalCommandBuilder, SearchTypes as ExternalSearchTypes
 from marksman.util.LockableValue import LockableValue
 from marksman.util.ReadWriteLockableValue import ReadWriteLockableValue
 from marksman.util.Log import Log
@@ -9,6 +11,9 @@ from datetime import datetime
 import threading
 from queue import Queue
 import traceback
+import time
+
+SearchTypes = ExternalSearchTypes + ["python", "custom"]
 
 class ProjectInfo:
     def __init__(self):
@@ -28,6 +33,77 @@ class Marksman(object):
         self._nvim = nvim
         self._hasInitialized = False
 
+    @pynvim.function('MarksmanForceRefresh')
+    def forceRefresh(self, args):
+        self._lazyInit()
+
+        assert len(args) == 1, 'Wrong number of arguments to MarksmanForceRefresh'
+
+        rootPath = self._getCanonicalPath(args[0])
+
+        info = self._getProjectInfo(rootPath)
+
+        if info.isUpdating.getValue():
+            return
+
+        info.isUpdating.setValue(True)
+        self._refreshQueue.put(rootPath)
+
+    @pynvim.command('MarksmanProfileSearchMethods', nargs='1', range='', sync=True)
+    def profileSearchMethods(self, args, _):
+        self._lazyInit()
+
+        dirPath = self._getCanonicalPath(args[0])
+
+        for i in range(2):
+            self._log.info(f'Round {i+1}:')
+
+            invalidTypes = []
+
+            for searchType in SearchTypes:
+                startTime = datetime.now()
+
+                fileIterator = self._tryScanForFilesUsingSearchType(searchType, dirPath, False)
+
+                if not fileIterator:
+                    invalidTypes.append(searchType)
+                    continue
+
+                for path in fileIterator:
+                    pass
+
+                elapsed = (datetime.now() - startTime).total_seconds()
+                self._log.info(f'Searching with "{searchType}" took {elapsed:0.2f} seconds')
+                time.sleep(0.001)
+
+        if len(invalidTypes) > 0:
+            self._log.info(f'The following were attempted but not supported: {invalidTypes}')
+
+        self._log.info(f'Done profiling')
+
+    @pynvim.function('MarksmanUpdateSearch', sync=True)
+    def updateSearch(self, args):
+        self._lazyInit()
+
+        assert len(args) == 5, 'Wrong number of arguments to MarksmanUpdateSearch'
+
+        rootPath = self._getCanonicalPath(args[0])
+        requestId = args[1]
+        offset = args[2]
+        maxAmount = args[3]
+        ignorePath = self._getCanonicalPath(args[4])
+
+        projectInfo = self._getProjectInfo(rootPath)
+        matchesSlice, totalMatchesCount = self._lookupMatchesSlice(
+            projectInfo, requestId, offset, maxAmount, ignorePath)
+
+        return {
+            'totalCount': projectInfo.totalCount.getValue(),
+            'isUpdating': projectInfo.isUpdating.getValue(),
+            'matchesCount': totalMatchesCount,
+            'matches': [self._convertToFileInfoDictionary(x) for x in matchesSlice],
+        }
+
     def _getCanonicalPath(self, path):
         return os.path.abspath(path)
 
@@ -41,7 +117,8 @@ class Marksman(object):
         self._lastOpenTimes = ReadWriteLockableValue({})
         self._refreshQueue = Queue()
         self._projectMap = ReadWriteLockableValue({})
-        self._explorer = FileExplorer(self._log, self._vimSettings)
+        self._pythonSearchHandler = PythonSearchHandler(self._vimSettings)
+        self._searchCommandBuilder = SearchExternalCommandBuilder(self._vimSettings)
         self._printQueue = Queue()
 
         searchThread = threading.Thread(target=self._searchThread)
@@ -51,7 +128,7 @@ class Marksman(object):
 
     def _getSettings(self):
         variables = [
-            'g:Mm_IgnoreDirectoryPatterns', 'g:Mm_IgnoreFilePatterns', 'g:Mm_FollowLinks', 
+            'g:Mm_IgnoreDirectoryPatterns', 'g:Mm_IgnoreFilePatterns', 'g:Mm_FollowLinks',
             'g:Mm_ExternalCommand', 'g:Mm_ShowHidden', 'g:Mm_SearchPreferenceOrder',
             'g:Mm_EnableDebugLogging'
         ]
@@ -72,6 +149,38 @@ class Marksman(object):
                 result += c.lower()
         return result
 
+    def _tryScanForFilesUsingSearchType(self, searchType, dirPath, noIgnore):
+        os.chdir(dirPath)
+
+        if searchType == "python":
+            # This should always work
+            return self._pythonSearchHandler.scanForFiles(dirPath, noIgnore)
+
+        if searchType == "custom":
+            if not self._vimSettings["exists('g:Mm_ExternalCommand')"]:
+                return None
+
+            cmd = self._vimSettings["g:Mm_ExternalCommand"] % dirPath.join('""')
+        else:
+            cmd = self._searchCommandBuilder.tryBuildExternalSearchCommand(
+                searchType, dirPath, noIgnore)
+
+        if not cmd:
+            return None
+
+        return AsyncCommandExecutor().execute(
+            cmd, encoding=self._vimSettings["&encoding"])
+
+    def _scanForFiles(self, dirPath, noIgnore):
+
+        for searchType in self._vimSettings["g:Mm_SearchPreferenceOrder"]:
+            result = self._tryScanForFilesUsingSearchType(searchType, dirPath, noIgnore)
+
+            if result:
+                return result
+
+        assert False, "Could not find valid search type!"
+
     def _searchThreadInternal(self):
         while True:
             rootPath = self._refreshQueue.get()
@@ -89,7 +198,7 @@ class Marksman(object):
 
             noIgnore = False  # Do we care about this?
 
-            for path in self._explorer.getAllFilesUnderDirectory(rootPath, noIgnore):
+            for path in self._scanForFiles(rootPath, noIgnore):
                 name = os.path.basename(path)
                 path = self._getCanonicalPath(path.strip())
                 id = self._getFileId(name)
@@ -144,22 +253,6 @@ class Marksman(object):
             self._searchThreadInternal()
         except Exception as e:
             self._log.queueException(e)
-
-    @pynvim.function('MarksmanForceRefresh')
-    def forceRefresh(self, args):
-        self._lazyInit()
-
-        assert len(args) == 1, 'Wrong number of arguments to MarksmanForceRefresh'
-
-        rootPath = self._getCanonicalPath(args[0])
-
-        info = self._getProjectInfo(rootPath)
-
-        if info.isUpdating.getValue():
-            return
-
-        info.isUpdating.setValue(True)
-        self._refreshQueue.put(rootPath)
 
     def _getProjectInfo(self, rootPath):
 
@@ -241,29 +334,6 @@ class Marksman(object):
 
     def _convertToFileInfoDictionary(self, fileInfo):
         return {'path': fileInfo.path, 'name': fileInfo.name}
-
-    @pynvim.function('MarksmanUpdateSearch', sync=True)
-    def updateSearch(self, args):
-        self._lazyInit()
-
-        assert len(args) == 5, 'Wrong number of arguments to MarksmanUpdateSearch'
-
-        rootPath = self._getCanonicalPath(args[0])
-        requestId = args[1]
-        offset = args[2]
-        maxAmount = args[3]
-        ignorePath = self._getCanonicalPath(args[4])
-
-        projectInfo = self._getProjectInfo(rootPath)
-        matchesSlice, totalMatchesCount = self._lookupMatchesSlice(
-            projectInfo, requestId, offset, maxAmount, ignorePath)
-
-        return {
-            'totalCount': projectInfo.totalCount.getValue(),
-            'isUpdating': projectInfo.isUpdating.getValue(),
-            'matchesCount': totalMatchesCount,
-            'matches': [self._convertToFileInfoDictionary(x) for x in matchesSlice],
-        }
 
 
 if __name__ == "__main__":

@@ -49,7 +49,7 @@ You can include the following customization in your .vimrc.  Note that the value
 " You might want to experiment with this order to see for yourself which one is fastest
 " If you set g:Mm_EnableDebugLogging to 1 then use Marksman in a big project, then open
 " :messages you can see timing information
-let g:Mm_SearchPreferenceOrder = ['git', 'hg', 'rg', 'pt', 'ag', 'find', 'python']
+let g:Mm_SearchPreferenceOrder = ['custom', 'git', 'hg', 'rg', 'pt', 'ag', 'find', 'python']
 
 " Add patterns for directories that you do not want Marksman to traverse for files
 " For example:
