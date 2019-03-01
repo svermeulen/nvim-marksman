@@ -86,7 +86,7 @@ function! marksman#run(...)
 
     while 1
         " Necessary to avoid putting CPU at 100%
-        sleep 10m
+        sleep 50m
 
         let result = MarksmanUpdateSearch(projectRootPath, requestId, offset, pageSize, currentPath)
         let offset = max([0, min([offset, result.matchesCount - 1])])
