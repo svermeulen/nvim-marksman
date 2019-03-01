@@ -7,6 +7,8 @@ Marksman is a file finder.  However, it is not a fuzzy file finder like [CtrlP](
 
 This shorthand is chosen based on the 'humps' in the file name.  For example, the files "FooBar.py", "fooBar.cpp" and "foo_bar.txt" will have a generated shorthand 'fb'.  So in order to select this file you would execute Marksman, then type 'fb' then press enter.
 
+Note that it is meant to be used alongside a fuzzy finder, for cases where you already know the exact name of the file you want to go to and want to get there in the fewest keystrokes possible.
+
 # Installation
 
 If using [vim-plug](https://github.com/junegunn/vim-plug) then you can install with the following line:
