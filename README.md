@@ -3,7 +3,7 @@
 
 # Marksman.vim
 
-Marksman is a file finder.  However, it is not a fuzzy file finder like [CtrlP](https://github.com/kien/ctrlp.vim), [Leaderf](https://github.com/Yggdroot/LeaderF), or [Fzf](https://github.com/junegunn/fzf.vim).  Unlike these tools, with Marksman each file has a generated shorthand that is derived from the file name that you have to type exactly in order to go to the file.
+Marksman is a lightweight file finder.  However, it is not a fuzzy file finder like [CtrlP](https://github.com/kien/ctrlp.vim), [Leaderf](https://github.com/Yggdroot/LeaderF), or [Fzf](https://github.com/junegunn/fzf.vim).  Unlike these tools, with Marksman each file has a generated shorthand that is derived from the file name that you have to type exactly in order to go to the file.
 
 This shorthand is chosen based on the 'humps' in the file name.  For example, the files "FooBar.py", "fooBar.cpp" and "foo_bar.txt" will have a generated shorthand 'fb'.  So in order to select this file you would execute Marksman, then type 'fb' then press enter.
 
