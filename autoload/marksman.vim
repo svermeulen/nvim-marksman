@@ -232,5 +232,3 @@ call s:InitVar('g:Mm_ShowHidden', 0)
 call s:InitVar('g:Mm_ProgressUpdateInterval', 0.25)
 call s:InitVar('g:Mm_SearchPreferenceOrder', ['custom', 'git', 'hg', 'rg', 'pt', 'ag', 'find', 'python'])
 
-command! -nargs=? Marksman call marksman#run(<q-args>)
-

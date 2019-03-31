@@ -50,6 +50,31 @@ class Marksman(object):
         info.isUpdating.setValue(True)
         self._refreshQueue.put(rootPath)
 
+    @pynvim.command('MarksmanOpenNextMatch', nargs='1', range='', sync=True)
+    def openNextMatch(self, args, _):
+        self._lazyInit()
+
+        assert len(args) == 1, 'Wrong number of arguments to MarksmanOpenNextMatch'
+
+        rootPath = self._getCanonicalPath(args[0])
+
+        with self._projectMap.readLock:
+            projectInfo = self._projectMap.value.get(rootPath)
+
+        if not projectInfo:
+            self._nvim.command('echo "Open marksman for the given project first before calling MarksmanOpenNextMatch"')
+            return
+
+        currentPath = self._getCanonicalPath(self._nvim.eval('expand("%:p")'))
+        id = self._getFileNameHumps(os.path.basename(currentPath))
+
+        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, currentPath)
+
+        if len(matchesSlice) > 0:
+            self._nvim.command('e ' + matchesSlice[0].path)
+        else:
+            self._nvim.command('echo "Could not find alternative path"')
+
     @pynvim.command('MarksmanProfileSearchMethods', nargs='1', range='', sync=True)
     def profileSearchMethods(self, args, _):
         self._lazyInit()
@@ -166,6 +191,9 @@ class Marksman(object):
         if not cmd:
             return None
 
+        if self._log.includeDebugging:
+            self._log.queueInfo(f'Marksman External Command: {cmd}')
+
         return AsyncCommandExecutor().execute(
             cmd, encoding=self._vimSettings["&encoding"])
 
@@ -198,7 +226,7 @@ class Marksman(object):
 
             for path in self._scanForFiles(rootPath, noIgnore):
                 name = os.path.basename(path)
-                path = self._getCanonicalPath(path.strip())
+                path = self._getCanonicalPath(os.path.join(rootPath, path.strip()))
                 id = self._getFileNameHumps(name)
 
                 if len(id) == 0:
@@ -301,7 +329,7 @@ class Marksman(object):
         fileList.sort(reverse=True, key=self._getFileChangeTime)
 
     def _onBufEnterInternal(self, path):
-        self._lazyInit()
+        assert self._hasInitialized
 
         path = self._getCanonicalPath(path)
         id = self._getFileNameHumps(os.path.basename(path))
@@ -332,6 +360,8 @@ class Marksman(object):
 
     @pynvim.autocmd('BufEnter', pattern='*', eval='expand("<afile>")')
     def onBufEnter(self, path):
+        if not self._hasInitialized:
+            return
         try:
             self._onBufEnterInternal(path)
         except Exception as e:

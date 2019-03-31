@@ -5,7 +5,7 @@ import traceback
 class Log:
     def __init__(self, nvim, includeDebugging):
         self._nvim = nvim
-        self._includeDebugging = includeDebugging
+        self.includeDebugging = includeDebugging
 
     def _escape(self, message):
         return message.replace('\\', '\\\\').replace('"', '\\"')
@@ -29,7 +29,7 @@ class Log:
         self._echoerr(message)
 
     def _getExceptionMessage(self, e):
-        if self._includeDebugging:
+        if self.includeDebugging:
             return traceback.format_exc()
 
         return f'Error when running marksman search: {type(e).__name__}: {e}'
@@ -41,10 +41,10 @@ class Log:
         self._echoerr(self._getExceptionMessage(e))
 
     def queueDebug(self, message):
-        if self._includeDebugging:
+        if self.includeDebugging:
             self.queueInfo(message)
 
     def debug(self, message):
-        if self._includeDebugging:
+        if self.includeDebugging:
             self.info(message)
 
