@@ -23,7 +23,7 @@ Note that marksman currently **requires Neovim** since it uses the Remote Plugin
 
 To run, execute the command `:Marksman`.  By default this will run in the current working directly.  You can also specify the directory explicitly, for example by running `:Marksman C:/Foo/Bar`.
 
-You might want to bind a command to it, for example:
+You probably want to bind a command to it, for example:
 
 ```
 nnoremap <leader>m :<c-u>Marksman<cr>
@@ -57,9 +57,9 @@ After launching Marksman:
 | `delete_character`    | `\<C-H>`      | Delete one character
 | `refresh`             | `\<F5>`       | Quit Marksman
 
-# Example Config
+# Optional Settings
 
-You can include the following customization in your .vimrc.  Note that the values below are already set as the default so including this same code would have no effect:
+There are also a number of settings you can set to customize marksman behaviour like in the below example.  Note that the values below are already set as the default so including this same code would have no effect:
 
 ```viml
 " You might want to experiment with this order to see for yourself which one is fastest
