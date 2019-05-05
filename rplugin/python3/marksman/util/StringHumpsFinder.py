@@ -17,7 +17,6 @@ def getStringHumps(value):
         value = value[:-1]
 
     result = value[0].lower()
-    lastIsUpper = value[0].isupper()
     i = 1
 
     while i < len(value):
@@ -25,14 +24,12 @@ def getStringHumps(value):
 
         if c == '_':
             result += value[i+1].lower()
-            lastIsUpper = value[i+1].isupper()
             i += 2
             continue
 
-        if c.isupper() and c.isupper() != lastIsUpper:
+        if c.isupper():
             result += c.lower()
 
-        lastIsUpper = c.isupper()
         i += 1
 
     return result
@@ -46,9 +43,9 @@ if __name__ == "__main__":
     assertIsEqual(getStringHumps("readMe"), "rm")
     assertIsEqual(getStringHumps("read_me"), "rm")
     assertIsEqual(getStringHumps("read_Me"), "rm")
-    assertIsEqual(getStringHumps("read_MEE"), "rm")
+    assertIsEqual(getStringHumps("read_MEE"), "rmee")
     assertIsEqual(getStringHumps("read4252-.'me10][\`.,,/><"), "rm")
-    assertIsEqual(getStringHumps("readMEEEe"), "rm")
+    assertIsEqual(getStringHumps("readMEEEe"), "rmeee")
     assertIsEqual(getStringHumps("this.is.a.test"), "tiat")
     assertIsEqual(getStringHumps("this.is.a.test"), "tiat")
     assertIsEqual(getStringHumps("_31./"), "")
