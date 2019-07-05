@@ -50,6 +50,31 @@ class Marksman(object):
         info.isUpdating.setValue(True)
         self._refreshQueue.put(rootPath)
 
+    @pynvim.command('MarksmanOpenFirstMatch', nargs='1', range='', sync=True)
+    def openFirstMatch(self, args, _):
+        self._lazyInit()
+
+        assert len(args) == 2 or len(args) == 1, 'Wrong number of arguments to MarksmanOpenNextMatch'
+
+        rootPath = self._getCanonicalPath(args[0])
+
+        if len(args) == 1:
+            id = ''
+        else:
+            id = args[1]
+
+        projectInfo = self._getProjectInfo(rootPath)
+
+        while projectInfo.isUpdating.getValue():
+            time.sleep(0.05)
+
+        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
+
+        if len(matchesSlice) > 0:
+            self._nvim.command('e ' + matchesSlice[0].path)
+        else:
+            self._nvim.command('echo "Could not find match"')
+
     @pynvim.command('MarksmanOpenNextMatch', nargs='1', range='', sync=True)
     def openNextMatch(self, args, _):
         self._lazyInit()
@@ -58,12 +83,10 @@ class Marksman(object):
 
         rootPath = self._getCanonicalPath(args[0])
 
-        with self._projectMap.readLock:
-            projectInfo = self._projectMap.value.get(rootPath)
+        projectInfo = self._getProjectInfo(rootPath)
 
-        if not projectInfo:
-            self._nvim.command('echo "Open marksman for the given project first before calling MarksmanOpenNextMatch"')
-            return
+        while projectInfo.isUpdating.getValue():
+            time.sleep(0.05)
 
         currentPath = self._getCanonicalPath(self._nvim.eval('expand("%:p")'))
         id = self._getFileNameHumps(os.path.basename(currentPath))
