@@ -15,6 +15,7 @@ import traceback
 import time
 
 SearchTypes = ExternalSearchTypes + ["python", "custom"]
+WaitingForSearchTimeout = 2.0
 
 class ProjectInfo:
     def __init__(self):
@@ -58,6 +59,8 @@ class Marksman(object):
 
         rootPath = self._getCanonicalPath(args[0])
 
+        assert os.path.isdir(rootPath), f"Could not find directory '{rootPath}'"
+
         if len(args) == 1:
             id = ''
         else:
@@ -65,8 +68,13 @@ class Marksman(object):
 
         projectInfo = self._getProjectInfo(rootPath)
 
+        elapsed = 0
+
         while projectInfo.isUpdating.getValue():
             time.sleep(0.05)
+            elapsed += 0.05
+            if elapsed > WaitingForSearchTimeout:
+                raise RuntimeError(f"Timeout waiting to update project '{rootPath}'")
 
         matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
 
@@ -83,10 +91,17 @@ class Marksman(object):
 
         rootPath = self._getCanonicalPath(args[0])
 
+        assert os.path.isdir(rootPath), f"Could not find directory '{rootPath}'"
+
         projectInfo = self._getProjectInfo(rootPath)
+
+        elapsed = 0
 
         while projectInfo.isUpdating.getValue():
             time.sleep(0.05)
+            elapsed += 0.05
+            if elapsed > WaitingForSearchTimeout:
+                raise RuntimeError(f"Timeout waiting to update project '{rootPath}'")
 
         currentPath = self._getCanonicalPath(self._nvim.eval('expand("%:p")'))
         id = self._getFileNameHumps(os.path.basename(currentPath))
@@ -137,6 +152,9 @@ class Marksman(object):
         assert len(args) == 5, 'Wrong number of arguments to MarksmanUpdateSearch'
 
         rootPath = self._getCanonicalPath(args[0])
+
+        assert os.path.isdir(rootPath), f"Could not find directory '{rootPath}'"
+
         requestId = args[1]
         offset = args[2]
         maxAmount = args[3]
@@ -233,6 +251,8 @@ class Marksman(object):
     def _searchThreadInternal(self):
         while True:
             rootPath = self._refreshQueue.get()
+
+            assert os.path.isdir(rootPath), f"Could not find directory '{rootPath}'"
 
             # self._log.queueDebug(f'Started processing "{rootPath}"')
 
