@@ -20,6 +20,7 @@ WaitingForSearchTimeout = 2.0
 class ProjectInfo:
     def __init__(self):
         self.idMap = ReadWriteLockableValue({})
+        self.nameMap = ReadWriteLockableValue({})
         self.totalCount = LockableValue(0)
         self.isUpdating = LockableValue(True)
 
@@ -51,6 +52,15 @@ class Marksman(object):
         info.isUpdating.setValue(True)
         self._refreshQueue.put(rootPath)
 
+    def _waitForProjectToInitialize(self, projectInfo):
+        elapsed = 0
+
+        while projectInfo.isUpdating.getValue():
+            time.sleep(0.05)
+            elapsed += 0.05
+            if elapsed > WaitingForSearchTimeout:
+                raise RuntimeError(f"Timeout waiting to update project in Marksman!")
+
     @pynvim.command('MarksmanOpenFirstMatch', nargs='1', range='', sync=True)
     def openFirstMatch(self, args, _):
         self._lazyInit()
@@ -68,13 +78,7 @@ class Marksman(object):
 
         projectInfo = self._getProjectInfo(rootPath)
 
-        elapsed = 0
-
-        while projectInfo.isUpdating.getValue():
-            time.sleep(0.05)
-            elapsed += 0.05
-            if elapsed > WaitingForSearchTimeout:
-                raise RuntimeError(f"Timeout waiting to update project '{rootPath}'")
+        self._waitForProjectToInitialize(projectInfo)
 
         matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
 
@@ -95,13 +99,7 @@ class Marksman(object):
 
         projectInfo = self._getProjectInfo(rootPath)
 
-        elapsed = 0
-
-        while projectInfo.isUpdating.getValue():
-            time.sleep(0.05)
-            elapsed += 0.05
-            if elapsed > WaitingForSearchTimeout:
-                raise RuntimeError(f"Timeout waiting to update project '{rootPath}'")
+        self._waitForProjectToInitialize(projectInfo)
 
         currentPath = self._getCanonicalPath(self._nvim.eval('expand("%:p")'))
         id = self._getFileNameHumps(os.path.basename(currentPath))
@@ -144,6 +142,30 @@ class Marksman(object):
             self._log.info(f'The following were attempted but not supported: {invalidTypes}')
 
         self._log.info(f'Done profiling')
+
+    @pynvim.function('MarksmanLookupByFileName', sync=True)
+    def lookupByFileName(self, args):
+        self._lazyInit()
+
+        assert len(args) == 2, 'Wrong number of arguments to MarksmanTryOpenByFileName'
+
+        rootPath = self._getCanonicalPath(args[0])
+
+        assert os.path.isdir(rootPath), f"Could not find directory '{rootPath}'"
+
+        fileName = args[1]
+        projectInfo = self._getProjectInfo(rootPath)
+
+        self._waitForProjectToInitialize(projectInfo)
+
+        with projectInfo.nameMap.readLock:
+            pathList = projectInfo.nameMap.value.get(fileName)
+
+            if not pathList:
+                return []
+
+            with pathList.readLock:
+                return [x for x in pathList.value]
 
     @pynvim.function('MarksmanUpdateSearch', sync=True)
     def updateSearch(self, args):
@@ -269,31 +291,43 @@ class Marksman(object):
 
             for path in self._scanForFiles(rootPath, noIgnore):
                 name = os.path.basename(path)
+
+                nameFileList = None
+                with projectInfo.nameMap.readLock:
+                    nameFileList = projectInfo.nameMap.value.get(name)
+
+                if not nameFileList:
+                    nameFileList = ReadWriteLockableValue([])
+                    with projectInfo.nameMap.writeLock:
+                        projectInfo.nameMap.value[name] = nameFileList
+
                 path = self._getCanonicalPath(os.path.join(rootPath, path.strip()))
+
+                with nameFileList.writeLock:
+                    nameFileList.value.append(path)
+
                 id = self._getFileNameHumps(name)
 
-                if len(id) == 0:
-                    continue
+                if len(id) > 0:
+                    idFileList = None
+                    with projectInfo.idMap.readLock:
+                        idFileList = projectInfo.idMap.value.get(id)
 
-                fileList = None
-                with projectInfo.idMap.readLock:
-                    fileList = projectInfo.idMap.value.get(id)
+                    if not idFileList:
+                        idFileList = ReadWriteLockableValue([])
+                        with projectInfo.idMap.writeLock:
+                            projectInfo.idMap.value[id] = idFileList
 
-                if not fileList:
-                    fileList = ReadWriteLockableValue([])
-                    with projectInfo.idMap.writeLock:
-                        projectInfo.idMap.value[id] = fileList
+                    fileInfo = FileInfo(path, name)
 
-                fileInfo = FileInfo(path, name)
+                    with allFilesList.writeLock:
+                        allFilesList.value.append(fileInfo)
 
-                with allFilesList.writeLock:
-                    allFilesList.value.append(fileInfo)
+                    with idFileList.writeLock:
+                        idFileList.value.append(fileInfo)
 
-                with fileList.writeLock:
-                    fileList.value.append(fileInfo)
-
-                with projectInfo.totalCount.lock:
-                    projectInfo.totalCount.value += 1
+                    with projectInfo.totalCount.lock:
+                        projectInfo.totalCount.value += 1
 
             with allFilesList.readLock:
                 # Update all the modification times
