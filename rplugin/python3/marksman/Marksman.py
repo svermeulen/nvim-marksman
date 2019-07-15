@@ -15,7 +15,7 @@ import traceback
 import time
 
 SearchTypes = ExternalSearchTypes + ["python", "custom"]
-WaitingForSearchTimeout = 2.0
+WaitingForSearchTimeout = 5.0
 
 class ProjectInfo:
     def __init__(self):
