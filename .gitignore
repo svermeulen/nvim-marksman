@@ -6,3 +6,5 @@ __pycache__
 
 # Ignore Gradle build output directory
 build
+
+/includedBuilds.txt
