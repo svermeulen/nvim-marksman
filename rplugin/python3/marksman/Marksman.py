@@ -61,6 +61,12 @@ class Marksman(object):
             if elapsed > WaitingForSearchTimeout:
                 raise RuntimeError(f"Timeout waiting to update project in Marksman!")
 
+    def _openMatch(self, filePath):
+        if os.path.exists(filePath):
+            self._nvim.command('e ' + filePath)
+        else:
+            self._nvim.command('echo "File {0} does not exist"'.format(filePath))
+
     @pynvim.command('MarksmanOpenFirstMatch', nargs='1', range='', sync=True)
     def openFirstMatch(self, args, _):
         self._lazyInit()
@@ -83,7 +89,7 @@ class Marksman(object):
         matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
 
         if len(matchesSlice) > 0:
-            self._nvim.command('e ' + matchesSlice[0].path)
+            self._openMatch(matchesSlice[0].path)
         else:
             self._nvim.command('echo "Could not find match"')
 
@@ -107,7 +113,7 @@ class Marksman(object):
         matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, currentPath)
 
         if len(matchesSlice) > 0:
-            self._nvim.command('e ' + matchesSlice[0].path)
+            self._openMatch(matchesSlice[0].path)
         else:
             self._nvim.command('echo "Could not find alternative path"')
 

@@ -186,7 +186,12 @@ function! marksman#run(...)
             call s:clearEcho()
 
             if !empty(result.matches)
-                exec 'e ' . result.matches[0].path
+                let filePath = result.matches[0].path
+                if filereadable(filePath)
+                    exec 'e ' . filePath
+                else
+                    echo "Could not find file '" . filePath . "'"
+                endif
             endif
 
             break
