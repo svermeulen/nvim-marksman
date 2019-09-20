@@ -180,7 +180,10 @@ class Marksman(object):
         requestId = args[1]
         offset = args[2]
         maxAmount = args[3]
-        ignorePath = self._getCanonicalPath(args[4])
+        # We could use ignorePath here to hide the current project, but I find that
+        # in practice this is more annoying than it is useful
+        # ignorePath = self._getCanonicalPath(args[4])
+        ignorePath = None
 
         projectInfo = self._getProjectInfo(rootPath)
         matchesSlice, totalMatchesCount = self._lookupMatchesSlice(
