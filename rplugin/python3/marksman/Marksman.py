@@ -143,6 +143,29 @@ class Marksman(object):
 
         self._log.info(f'Done profiling')
 
+    @pynvim.function('MarksmanGetProjectFileList', sync=True)
+    def getProjectFileList(self, args):
+        self._lazyInit()
+
+        assert len(args) == 1, 'Wrong number of arguments to MarksmanGetProjectFileList'
+
+        result = []
+
+        for rootPath in args[0]:
+            rootPath = self._getCanonicalPath(rootPath)
+
+            assert os.path.isdir(rootPath), f"Could not find directory '{rootPath}'"
+
+            projectInfo = self._getProjectInfo(rootPath)
+
+            self._waitForProjectToInitialize(projectInfo)
+
+            with projectInfo.nameMap.readLock:
+                for pathList in projectInfo.nameMap.value.values():
+                    with pathList.readLock:
+                        result += pathList.value
+        return result
+
     @pynvim.function('MarksmanLookupByFileName', sync=True)
     def lookupByFileName(self, args):
         self._lazyInit()
