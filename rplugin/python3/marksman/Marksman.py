@@ -18,7 +18,8 @@ SearchTypes = ExternalSearchTypes + ["python", "custom"]
 WaitingForSearchTimeout = 5.0
 
 class ProjectInfo:
-    def __init__(self):
+    def __init__(self, rootPath):
+        self.rootPath = rootPath
         self.idMap = ReadWriteLockableValue({})
         self.nameMap = ReadWriteLockableValue({})
         self.totalCount = LockableValue(0)
@@ -36,6 +37,13 @@ class Marksman(object):
         self._nvim = nvim
         self._hasInitialized = False
 
+    def _queueRefresh(self, info):
+        if info.isUpdating.getValue():
+            return
+
+        info.isUpdating.setValue(True)
+        self._refreshQueue.put(info.rootPath)
+
     @pynvim.function('MarksmanForceRefresh')
     def forceRefresh(self, args):
         self._lazyInit()
@@ -45,12 +53,7 @@ class Marksman(object):
         rootPath = self._getCanonicalPath(args[0])
 
         info = self._getProjectInfo(rootPath)
-
-        if info.isUpdating.getValue():
-            return
-
-        info.isUpdating.setValue(True)
-        self._refreshQueue.put(rootPath)
+        self._queueRefresh(info)
 
     def _waitForProjectToInitialize(self, projectInfo):
         elapsed = 0
@@ -60,6 +63,17 @@ class Marksman(object):
             elapsed += 0.05
             if elapsed > WaitingForSearchTimeout:
                 raise RuntimeError(f"Timeout waiting to update project in Marksman!")
+
+    def _tryOpenFirstMatch(self, projectInfo, id):
+        self._waitForProjectToInitialize(projectInfo)
+
+        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
+
+        if len(matchesSlice) > 0:
+            self._nvim.command('e ' + matchesSlice[0].path)
+            return True
+
+        return False
 
     @pynvim.command('MarksmanOpenFirstMatch', nargs='1', range='', sync=True)
     def openFirstMatch(self, args, _):
@@ -78,14 +92,10 @@ class Marksman(object):
 
         projectInfo = self._getProjectInfo(rootPath)
 
-        self._waitForProjectToInitialize(projectInfo)
-
-        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
-
-        if len(matchesSlice) > 0:
-            self._nvim.command('e ' + matchesSlice[0].path)
-        else:
-            self._nvim.command('echo "Could not find match"')
+        if not self._tryOpenFirstMatch(projectInfo, id):
+            self._queueRefresh(projectInfo)
+            if not self._tryOpenFirstMatch(projectInfo, id):
+                self._nvim.command('echo "Could not find match"')
 
     @pynvim.command('MarksmanOpenNextMatch', nargs='1', range='', sync=True)
     def openNextMatch(self, args, _):
@@ -396,7 +406,7 @@ class Marksman(object):
             info = self._projectMap.value.get(rootPath)
 
         if not info:
-            info = ProjectInfo()
+            info = ProjectInfo(rootPath)
 
             with self._projectMap.writeLock:
                 self._projectMap.value[rootPath] = info
