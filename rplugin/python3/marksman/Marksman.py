@@ -234,7 +234,7 @@ class Marksman(object):
         return getStringHumps(fileNameWithoutExtension)
 
     def _getCanonicalPath(self, path):
-        return os.path.abspath(path)
+        return os.path.realpath(path)
 
     def _lazyInit(self):
         if self._hasInitialized:
@@ -327,6 +327,11 @@ class Marksman(object):
 
             for path in self._scanForFiles(rootPath, noIgnore):
                 name = os.path.basename(path)
+                path = self._getCanonicalPath(os.path.join(rootPath, path.strip()))
+
+                # This can happen with symlink
+                if not path.startswith(rootPath):
+                    continue
 
                 nameFileList = None
                 with projectInfo.nameMap.readLock:
@@ -336,8 +341,6 @@ class Marksman(object):
                     nameFileList = ReadWriteLockableValue([])
                     with projectInfo.nameMap.writeLock:
                         projectInfo.nameMap.value[name] = nameFileList
-
-                path = self._getCanonicalPath(os.path.join(rootPath, path.strip()))
 
                 with nameFileList.writeLock:
                     nameFileList.value.append(path)
