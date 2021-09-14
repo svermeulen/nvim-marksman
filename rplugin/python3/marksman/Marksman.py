@@ -323,7 +323,9 @@ class Marksman(object):
 
             projectInfo.idMap.setValue({'': allFilesList})
 
-            noIgnore = False  # Do we care about this?
+            # TODO - this should be configurable somehow
+            # Sometimes you do want to select git ignored files
+            noIgnore = True
 
             for path in self._scanForFiles(rootPath, noIgnore):
                 name = os.path.basename(path)
