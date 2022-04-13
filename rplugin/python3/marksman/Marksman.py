@@ -153,6 +153,12 @@ class Marksman(object):
 
         self._log.info(f'Done profiling')
 
+    @pynvim.function('MarksmanGetFileId', sync=True)
+    def getFileId(self, args):
+        self._lazyInit()
+        assert len(args) == 1, 'Wrong number of arguments to MarksmanGetFileId'
+        return self._getFileNameHumps(args[0])
+
     @pynvim.function('MarksmanGetProjectFileList', sync=True)
     def getProjectFileList(self, args):
         self._lazyInit()

@@ -74,6 +74,11 @@ function! s:addPadding(numSpaces)
     return message
 endfunction
 
+function! marksman#displayCurrentShortcut()
+    let result = MarksmanGetFileId(expand('%:p'))
+    echom "Marksman ID: " . result
+endfunction
+
 function! marksman#run(...)
     let projectRootPath = len(a:000) ? a:1 : getcwd()
     let requestId = len(a:000) > 1 ? a:2 : ''
