@@ -67,7 +67,7 @@ class Marksman(object):
     def _tryOpenFirstMatch(self, projectInfo, id):
         self._waitForProjectToInitialize(projectInfo)
 
-        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None)
+        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, None, None)
 
         if len(matchesSlice) > 0:
             self._nvim.command('e ' + matchesSlice[0].path)
@@ -114,7 +114,7 @@ class Marksman(object):
         currentPath = self._getCanonicalPath(self._nvim.eval('expand("%:p")'))
         id = self._getFileNameHumps(os.path.basename(currentPath))
 
-        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, currentPath)
+        matchesSlice, _ = self._lookupMatchesSlice(projectInfo, id, 0, 1, currentPath, None)
 
         if len(matchesSlice) > 0:
             self._nvim.command('e ' + matchesSlice[0].path)
@@ -210,7 +210,7 @@ class Marksman(object):
     def updateSearch(self, args):
         self._lazyInit()
 
-        assert len(args) == 5, 'Wrong number of arguments to MarksmanUpdateSearch'
+        assert len(args) == 6, 'Wrong number of arguments to MarksmanUpdateSearch'
 
         rootPath = self._getCanonicalPath(args[0])
 
@@ -223,10 +223,17 @@ class Marksman(object):
         # in practice this is more annoying than it is useful
         # ignorePath = self._getCanonicalPath(args[4])
         ignorePath = None
+        requiredSuffix = args[5]
+
+        if requiredSuffix is not None and len(requiredSuffix) == 0:
+            requiredSuffix = None
+
+        if self._log.includeDebugging:
+            self._log.queueInfo(f'requiredSuffix: {requiredSuffix}')
 
         projectInfo = self._getProjectInfo(rootPath)
         matchesSlice, totalMatchesCount = self._lookupMatchesSlice(
-            projectInfo, requestId, offset, maxAmount, ignorePath)
+            projectInfo, requestId, offset, maxAmount, ignorePath, requiredSuffix)
 
         return {
             'totalCount': projectInfo.totalCount.getValue(),
@@ -426,7 +433,7 @@ class Marksman(object):
 
         return info
 
-    def _lookupMatchesSlice(self, projectInfo, requestId, offset, maxAmount, ignorePath):
+    def _lookupMatchesSlice(self, projectInfo, requestId, offset, maxAmount, ignorePath, requiredSuffix):
 
         with projectInfo.idMap.readLock:
             fileList = projectInfo.idMap.value.get(requestId)
@@ -435,7 +442,7 @@ class Marksman(object):
             return [], 0
 
         with fileList.readLock:
-            return [x for x in fileList.value if x.path != ignorePath and os.path.exists(x.path)][offset:offset + maxAmount], len(fileList.value)
+            return [x for x in fileList.value if x.path != ignorePath and os.path.exists(x.path) and (requiredSuffix is None or x.path.endswith(requiredSuffix))][offset:offset + maxAmount], len(fileList.value)
 
     def _getFileChangeTime(self, fileInfo):
         with self._lastOpenTimes.readLock:

@@ -83,6 +83,7 @@ function! marksman#run(...)
     let projectRootPath = len(a:000) ? a:1 : getcwd()
     let requestId = len(a:000) > 1 ? a:2 : ''
     let offset = len(a:000) > 2 ? a:3 : 0
+    let requiredSuffix = len(a:000) > 3 ? a:4 : ""
 
     let pageSize = 15
     let leftIndent = 10
@@ -93,7 +94,7 @@ function! marksman#run(...)
         " Necessary to avoid putting CPU at 100%
         sleep 50m
 
-        let result = MarksmanUpdateSearch(projectRootPath, requestId, offset, pageSize, currentPath)
+        let result = MarksmanUpdateSearch(projectRootPath, requestId, offset, pageSize, currentPath, requiredSuffix)
         let offset = max([0, min([offset, result.matchesCount - 1])])
 
         redraw
